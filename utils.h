@@ -6,8 +6,8 @@
 #define S_IXUSR 00100
 
 typedef unsigned int mode_t;
-typedef unsigned int size_t;
-typedef int ssize_t;
-typedef int off_t;
+//typedef unsigned int size_t;
+// typedef int ssize_t;
+//typedef int off_t;
 
 

@@ -1,37 +1,26 @@
 #pragma once
 
-#include "mode.h"
+#include "utils.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <stdint.h>
+#include <errno.h>
 
 #define DATA_BLOCKS 4096
 #define DATA_BLOCK_SIZE 1024 //bytes
 
-#define META_DATA_SIZE 33792 // (4096 + 4096) * 4 + 1024 bytes
-#define META_DATA_BLOCKS 33 // (( 4096 + 4096 ) * 4 + 1024) / 1024
+#define META_DATA_SIZE 33792 // 4096 * 4 + 2048 * 8 + 1024 bytes
+#define META_DATA_BLOCKS 33 // (4096 * 4 + 2048 * 8 + 1024) / 1024
 
 #define DISK_DATA_SIZE 4194304 // 1024 * 4096 bytes
 #define DISK_SIZE 4228096 // 4194304 + 33792 bytes
-#define DISK_BLOCKS 4129 // 4096 + (( 4096 + 4096 ) * 4 + 1024) / 1024
+#define DISK_BLOCKS 4129 // 4096 + (4096 * 4 + 2048 * 8 + 1024) / 1024
 
 #define MAX_OPEN_FILES 10
-#define MAX_FCBS 4096
+#define MAX_FCBS 2048
 #define MAX_FILE_NAME_LENGTH 8
-
-typedef struct FileSystemFAT {
-	uintptr_t diskSize; // 4 bytes
-	int32_t blockSize; // 4 bytes
-	int32_t blockCount; // 4 bytes
-	uint32_t *rootFCB; // 4 bytes
-	char bitMap[DATA_BLOCKS / 8]; // 512 bytes -> 4096 bits
-	char info_padding[DATA_BLOCK_SIZE - 528]; // (padding) 496 bytes
-
-	int32_t tableFAT[DATA_BLOCKS]; // 4096 * 4 bytes = 16384 bytes
-	uint32_t *fcbList[MAX_FCBS]; // 4096 * 4 bytes = 16384 bytes
-	char diskBuffer[DISK_DATA_SIZE]; // 1024 * 4096 bytes = 4194304 bytes
-} FileSystemFAT;
-
 
 // 1024 bytes
 typedef struct FCB{
@@ -43,11 +32,24 @@ typedef struct FCB{
 	char data[DATA_BLOCK_SIZE - 24]; // 1000 bytes
 } FCB;
 
+typedef struct FileSystemFAT {
+	int32_t diskSize; // 4 bytes
+	int32_t blockSize; // 4 bytes
+	int32_t blockNum; // 4 bytes
+	uint64_t rootFCB; // 8 bytes
+	char bitMap[DATA_BLOCKS / 8]; // 512 bytes -> 4096 bits
+	char info_padding[DATA_BLOCK_SIZE - 532]; // (padding) 492 bytes
+
+	int32_t tableFAT[DATA_BLOCKS]; // 4096 * 4 bytes = 16384 bytes
+	uint64_t fcbList[MAX_FCBS]; // 2048 * 8 bytes = 16384 bytes
+	char diskBuffer[DISK_DATA_SIZE]; // 1024 * 4096 bytes = 4194304 bytes
+} FileSystemFAT;
+
 // 1024 bytes
 typedef struct DirectoryEntry {
 	int32_t numFCBS; // 4 bytes
 	int32_t isLast; // 4 bytes (0 = false, 1 = true)
-	uint32_t *FCBS[( DATA_BLOCK_SIZE - 8 ) / 4]; // 254 pointers * 4 bytes each = 1016 bytes
+	uint64_t FCBS[( DATA_BLOCK_SIZE - 8 ) / 8]; // 127 pointers * 8 bytes each = 1016 bytes
 } DirectoryEntry;
 
 // 1024 bytes
@@ -59,7 +61,7 @@ typedef struct FileEntry {
 typedef struct DirectoryEntryMin {
 	int32_t numFCBS; // 4 bytes
 	int32_t isLast; // 4 bytes
-	FCB *FCBS[( DATA_BLOCK_SIZE - 24 - 8 ) / 8]; // 248 pointers * 4 bytes each = 992 bytes
+	uint64_t FCBS[( DATA_BLOCK_SIZE - 24 - 8 ) / 8]; // 124 pointers * 8 bytes each = 992 bytes
 } DirectoryEntryMin;
 
 // 1000 bytes
@@ -80,7 +82,7 @@ typedef struct OpenFileRef {
 } OpenFileRef;
 
 
-void FS_init();
+FileSystemFAT *FS_init();
 
 void createFile(char *fileName);
 void eraseFile(char *fileName);
