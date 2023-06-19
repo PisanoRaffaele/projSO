@@ -1,13 +1,20 @@
-#pragma once
+#ifndef UTILS_H
+#define UTILS_H
 
-#define S_IRWXU 00700
-#define S_IRUSR 00400
-#define S_IWUSR 00200
-#define S_IXUSR 00100
+#include "FS_Structs.h"
 
-typedef unsigned int mode_t;
-//typedef unsigned int size_t;
-// typedef int ssize_t;
-//typedef int off_t;
+char *getDataBlock(FileSystemFAT *fs);
 
+int getBlockIdx(FileSystemFAT *fs, char *block_ptr);
 
+char *getBlockPointer(FileSystemFAT *fs, int idx);
+
+void releaseDataBlock(FileSystemFAT *fs, int index);
+
+void setBit(char *bitMap, int index);
+
+void printFCB(FCB fcb);
+
+void printFS(FileSystemFAT fs, const char* option);
+
+#endif
