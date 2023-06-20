@@ -20,7 +20,10 @@
 
 #define MAX_OPEN_FILES 10
 #define MAX_FCBS 1000
-#define MAX_FILE_NAME_LENGTH 8
+#define MAX_FILE_NAME_LENGTH 12
+
+#define MAX_DIR_IN_MIN ( BLOCK_SIZE - 28 - 8 ) / 8
+#define MAX_DIR_IN_BLOCK ( BLOCK_SIZE - 8 ) / 8
 
 #define ROOT_DIR_NAME "$ROOT$"
 
@@ -38,79 +41,64 @@
 #define W 2
 #define R 1
 
-typedef unsigned int mode_type;
-//typedef unsigned int size_t;
-//typedef int ssize_t;
-//typedef int off_t;
+typedef int32_t mode_type;
 
-// 4096 bytes
 typedef struct FCB{
-	char fileName[MAX_FILE_NAME_LENGTH]; // 8 bytes
-	int32_t permissions; // 4 bytes
-	int32_t isDirectory; // 4 bytes (0 = false, 1 = true)
-	int32_t fileBlockCount; // 4 bytes
-	int32_t nextBlockIndex; // 4 bytes
-	char data[BLOCK_SIZE - 24]; // 4072 bytes
+	char	fileName[MAX_FILE_NAME_LENGTH];
+	int32_t	permissions;
+	int32_t	isDirectory; // (0 = false, 1 = true)
+	int32_t	BlockCount;
+	int32_t	FATNextIndex;
+	char	data[BLOCK_SIZE - 28]; // 4068 bytes
 } FCB;
 
+
 typedef struct FileSystemFAT {
-	int32_t tableFAT[DATA_BLOCKS]; // 1024 * 4 bytes = 4096 bytes
-
-	int32_t diskSize; // 4 bytes
-	int32_t blockSize; // 4 bytes
-	int32_t blockNum; // 4 bytes
-	int32_t numFCBS; // 4 bytes
-	FCB *rootFCB; // 8 bytes
-	char bitMap[DATA_BLOCKS / 8]; // 128 bytes -> 1024 bits
-
-	FCB *fcbList[MAX_FCBS]; // 1000 * 8 bytes = 8000 bytes
-
-	char info_padding[40]; // 4096 * 2 - (4 + 4 + 4 + 4 + 8 + 128 + 8000) = 40 bytes (padding)
-
-	char diskBuffer[DISK_DATA_SIZE]; // 1024 * 4096 bytes = 4194304 bytes
+	int32_t	tableFAT[DATA_BLOCKS]; // 1024 * 4 bytes = 4096 bytes
+	int32_t	diskSize;
+	int32_t	blockSize;
+	int32_t	blockNum;
+	int32_t	numFCBS;
+	FCB		*rootFCB; // 8 bytes
+	char	bitMap[DATA_BLOCKS / 8];
+	FCB		*fcbList[MAX_FCBS]; // 1000 * 8 bytes = 8000 bytes
+	char	info_padding[40]; // 4096 * 2 - (4 + 4 + 4 + 4 + 8 + 128 + 8000) = 40 bytes (padding)
+	char	diskBuffer[DISK_DATA_SIZE];
 } FileSystemFAT;
 
-// 4096 bytes
+
 typedef struct DirectoryEntry {
-	int32_t numFCBS; // 4 bytes
-	int32_t isLast; // 4 bytes (0 = false, 1 = true)
-	FCB *FCBS[( BLOCK_SIZE - 8 ) / 8]; // 511 pointers * 8 bytes each = 4088 bytes
+	int32_t	numFCBS;
+	int32_t	isMin;
+	FCB		*FCBS[MAX_DIR_IN_BLOCK]; // 511 pointers * 8 bytes each = 4088 bytes
 } DirectoryEntry;
 
-// 4096 bytes
+
 typedef struct FileEntry {
-	char data[BLOCK_SIZE]; // 4096 bytes
+	char	data[BLOCK_SIZE];
 } FileEntry;
 
-// 4072 bytes
+
+// 4068 bytes
 typedef struct DirectoryEntryMin {
-	int32_t numFCBS; // 4 bytes
-	int32_t isLast; // 4 bytes
-	uint64_t FCBS[( BLOCK_SIZE - 24 - 8 ) / 8]; // 508 pointers * 8 bytes each = 4064 bytes
+	int32_t	numFCBS;
+	int32_t	isMin;
+	FCB		*FCBS[MAX_DIR_IN_MIN]; // 508 pointers * 8 bytes each = 4064 bytes
 } DirectoryEntryMin;
 
-// 4072 bytes
+
+// 4068 bytes
 typedef struct FileEntryMin {
-	char data[BLOCK_SIZE - 24]; // 4072 bytes
+	char	data[BLOCK_SIZE - 28]; // 4072 bytes
 } FileEntryMin;
 
 
-
 typedef struct FileHandle {
-	int32_t filePointer; // 4 bytes
-	FCB *fcb; // 8 bytes
+	FileSystemFAT	*fileSystem;
+	FCB				*fcb;
+	int				filePointer;
 } FileHandle;
 
-
-
-typedef struct OpenFileInfo {
-	FCB *fcb;
-	int filePointer;
-} OpenFileInfo;
-
-typedef struct OpenFileRef {
-	OpenFileInfo *openFileInfo;
-} OpenFileRef;
 
 
 #endif

@@ -9,12 +9,16 @@ int getBlockIdx(FileSystemFAT *fs, char *block_ptr);
 
 char *getBlockPointer(FileSystemFAT *fs, int idx);
 
-void releaseDataBlock(FileSystemFAT *fs, int index);
+void removeBit(char *bitMap, int index);
 
 void setBit(char *bitMap, int index);
 
-void printFCB(FCB fcb);
+FCB *createFCB(FileSystemFAT *fs, char *fileName, mode_type mode, int32_t isDirectory);
 
-void printFS(FileSystemFAT fs, const char* option);
+void deleteFCB(FileSystemFAT *fs, FCB *fcb);
+
+void addFcbToDirectory(FileSystemFAT *fs, FCB *fcb, FCB *directory);
+
+FCB *createNewPath(char *path);
 
 #endif

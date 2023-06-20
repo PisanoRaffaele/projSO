@@ -1,8 +1,6 @@
 #include "FileSystemFAT.h"
 #include "utils.h"
-
-OpenFileInfo	*openFiles[MAX_OPEN_FILES];
-int				numOpenFiles = 0;
+#include "prints.h"
 
 FileSystemFAT *FS_init()
 {
@@ -30,45 +28,36 @@ FileSystemFAT *FS_init()
 	for (i = 0; i < MAX_FCBS; i++)
 		FAT->fcbList[i] = 0;
 
-	for (i = 0; i < MAX_OPEN_FILES; i++)
-		openFiles[i] = 0;
+	FCB *root = createFCB(FAT, ROOT_DIR_NAME, R, 1);
 
-	FCB *root = (FCB *)&FAT->diskBuffer[0];
-
-	strcpy(root->fileName, ROOT_DIR_NAME);
-
-	root->permissions = R;
-	root->isDirectory = 1;
-	root->fileBlockCount = 1;
-	root->nextBlockIndex = -1;
+	FAT->rootFCB = root;
 
 	DirectoryEntryMin *rootDir = (DirectoryEntryMin *)root->data;
 	rootDir->numFCBS = 0;
-	rootDir->isLast = 1;
-
-	setBit(FAT->bitMap, 0);
-
-	FAT->rootFCB = root;
+	rootDir->FCBS[0] = NULL;
 
 	return FAT;
 }
 
 int main() {
-	FileSystemFAT *f = FS_init();
+	FileSystemFAT *fs = FS_init();
 	// uintptr_t f;
-	printFS(*f, "bitMap");
 
-	char *block_ptr = getDataBlock(f);
-	int idx = getBlockIdx(f, block_ptr);
+	//createFile(fs, "$root$/user/prova/test.txt", R);
 
-	block_ptr = getBlockPointer(f, idx);
+	//printFS(fs, "bitMap");
 
-	idx = getBlockIdx(f, block_ptr);
+	// FCB *f = createFCB(fs, "test.txt", R, 0);
 
-	printFS(*f, "bitMap");
+	// printFS(fs, "fcbList");
 
-	releaseDataBlock(f, idx);
+	// createFCB(fs, "test2.txt", R, 0);
 
-	printFS(*f, "bitMap");
+	// printFS(fs, "fcbList");
+
+	// deleteFCB(fs, f);
+
+	// printFS(fs, "fcbList");
+
 }
 

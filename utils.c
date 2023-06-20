@@ -17,14 +17,6 @@ char *getDataBlock(FileSystemFAT *fs)
 	return NULL;
 }
 
-void releaseDataBlock(FileSystemFAT *fs, int index)
-{
-	int byteIndex = index / 8;
-	int bitIndex = index % 8;
-
-	fs->bitMap[byteIndex] &= ~(1 << bitIndex);
-}
-
 int getBlockIdx(FileSystemFAT *fs, char *block_ptr)
 {
 	return (block_ptr - fs->diskBuffer) / fs->blockSize;
@@ -43,86 +35,137 @@ void setBit(char *bitMap, int index)
 	bitMap[byteIndex] |= 1 << bitIndex;
 }
 
-void printFCB(FCB fcb) {
-    printf("	FCB:\n");
-    printf("	fileName: %s\n", fcb.fileName);
-    printf("	permissions: %d\n", fcb.permissions);
-    printf("	isDirectory: %d\n", fcb.isDirectory);
-    printf("	fileBlockCount: %d\n", fcb.fileBlockCount);
-    printf("	nextBlockIndex: %d\n", fcb.nextBlockIndex);
-    printf("	data: \n");
-	for (int i = 0; i < sizeof(fcb.data); i++) {
-		printf("%c", fcb.data[i]);
+void removeBit(char *bitMap, int index)
+{
+	int byteIndex = index / 8;
+	int bitIndex = index % 8;
+
+	bitMap[byteIndex] &= ~(1 << bitIndex);
+}
+
+FCB *createFCB(FileSystemFAT *fs, char *fileName, mode_type mode, int32_t isDirectory)
+{
+	if (fs->numFCBS >= MAX_FCBS)
+	{
+		perror("No more FCBs");
+		return NULL;
+	}
+
+	FCB *fcb = (FCB *)getDataBlock(fs);
+	if (fcb == NULL)
+		return NULL;
+
+	fs->numFCBS++;
+	int i = 0;
+	while (fs->fcbList[i] != NULL)
+		i++;
+	fs->fcbList[i] = fcb;
+	fcb->permissions = mode;
+	fcb->isDirectory = isDirectory;
+	fcb->BlockCount = 1;
+	fcb->FATNextIndex = -1;
+	strncpy(fcb->fileName, fileName, 7);
+	return fcb;
+}
+
+void deleteFCB(FileSystemFAT *fs, FCB *fcb)
+{
+	int count = 0;
+	int i = 0;
+
+	while (count < fs->numFCBS)
+	{
+		if (fs->fcbList[i] != NULL)
+			count++;
+		else if (fs->fcbList[i] == fcb)
+			break;
+		i++;
+	}
+	fs->numFCBS--;
+	fs->fcbList[i] = NULL;
+
+	removeBit(fs, getBlockIdx(fs, (char *)fcb));
+}
+
+DirectoryEntry *getNextDirBlock(FileSystemFAT *fs, FCB *dirFcb)
+{
+	DirectoryEntry *de;
+	int				idx;
+	int				pre;
+
+	pre = -1;
+	idx = dirFcb->FATNextIndex;
+	while (idx != -1)
+	{
+		de = (DirectoryEntry *) getBlockPointer(fs, idx);
+		if (de->numFCBS < MAX_DIR_IN_MIN)
+			return de;
+		pre = idx;
+		idx = fs->tableFAT[pre];
+	}
+	de = (DirectoryEntry *) getDataBlock(fs);
+	if (de == NULL)
+		return NULL;
+	idx = getBlockIdx(fs, (char *)de);
+	if (pre == -1)
+		dirFcb->FATNextIndex = idx;
+	else
+		fs->tableFAT[pre] = idx;
+	dirFcb->BlockCount++;
+	return de;
+}
+
+
+void addFcbToDirFcb(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
+{
+	DirectoryEntryMin	*deMin;
+	DirectoryEntry		*de;
+	int					count;
+	int					i;
+
+	i = 0;
+	count = 0;
+	deMin = (DirectoryEntryMin *) &dirFCB->data;
+	if (deMin->numFCBS < MAX_DIR_IN_MIN)
+	{
+		while (count < deMin->numFCBS)
+		{
+			if (deMin->FCBS[i] != NULL) // 0 == NULL nei puntatori
+				count++;
+			else if (deMin->FCBS[i] == NULL)
+			{
+				deMin->numFCBS++;
+				deMin->FCBS[i] = fcb;
+				break;
+			}
+			i++;
+		}
+	}
+	else
+	{
+		de = getNextDirBlock(fs, dirFCB);
+		if (de == NULL)
+		{
+			perror("No more directory blocks");
+			return;
+		}
+		while (count < de->numFCBS)
+		{
+			if (de->FCBS[i] != NULL) //oppure 0?
+				count++;
+			else if (de->FCBS[i] == NULL)
+			{
+				de->numFCBS++;
+				de->FCBS[i] = fcb;
+				break;
+			}
+			i++;
+		}
 	}
 }
 
-void printFS(FileSystemFAT fs, const char* option) {
-    printf(COLOR_CYAN "FileSystemFAT:\n" COLOR_RESET);
-    printf(COLOR_CYAN "diskSize:" COLOR_RESET " %d bytes, %d MB\n", fs.diskSize, fs.diskSize / 1000000);
-    printf(COLOR_CYAN"blockSize:" COLOR_RESET " %d bytes\n", fs.blockSize);
-    printf(COLOR_CYAN"blockNum:" COLOR_RESET " %d\n", fs.blockNum);
-	printf(COLOR_CYAN"numFCBS:" COLOR_RESET" %d\n", fs.numFCBS);
-    printf(COLOR_CYAN"rootFCB: [\n"COLOR_RESET);
-	printFCB(*(FCB *)fs.rootFCB);
-	printf(COLOR_CYAN"]\n"COLOR_RESET);
 
-    if (strcmp(option, "bitMap") == 0) {
-
-        printf(COLOR_CYAN "bitMap: \n" COLOR_RESET);
-        for (int i = 0; i < sizeof(fs.bitMap); i++) {
-            unsigned char byte = fs.bitMap[i];
-            for (int j = 0; j < 8; j++) {
-                int bit = (byte >> j) & 1;
-				if (bit == 1)
-					printf(COLOR_GREEN "%d" COLOR_RESET, bit);
-				else
-                	printf("%d", bit);
-            }
-        }
-        printf("\n");
-    } else if (strcmp(option, "tableFAT") == 0) {
-
-		printf(COLOR_CYAN "tableFAT: \n" COLOR_RESET);
-		for (int i = 0; i < sizeof(fs.tableFAT) / sizeof(fs.tableFAT[0]); i++) {
-			printf("%d[%d], ", i, fs.tableFAT[i]);
-		}
-		printf("\n");
-	} else if (strcmp(option, "fcbList") == 0) {
-
-        printf(COLOR_CYAN "fcbList: \n" COLOR_RESET);
-        for (int i = 0; i < sizeof(fs.fcbList); i++) {
-			if(fs.fcbList[i] != 0)
-			{
-				printf("[\n");
-				printFCB(*(FCB *)fs.fcbList[i]);
-				printf("]\n");
-			}
-			else
-			{
-				if(!i)
-					printf(" [empty]\n");
-				return;
-			}
-        }
-        printf("\n");
-    } else if (strcmp(option, "diskBuffer") == 0) {
-
-		printf(COLOR_CYAN "diskBuffer (1/512): \n" COLOR_RESET);
-
-		int smallSize = DISK_DATA_SIZE / 512;
-
-		for (int i = 0; i < smallSize; i++) {
-			printf("%02X ", fs.diskBuffer[i] & 0xFF); // Stampa il byte in esadecimale
-
-			// Verifica se il conteggio raggiunge un multiplo della dimensione del blocco
-			if ((i + 1) % (BLOCK_SIZE) == 0) {
-				printf(COLOR_BLUE "\n|block|\n" COLOR_RESET); // Stampa una barra verticale colorata
-			}
-		}
-
-		printf("\n");
-	} else {
-        printf("option = {'bitMap', 'tableFAT', 'fcbList', 'diskBuffer'}.\n");
-    }
-    printf("\n");
+FCB *createNewPath(char *path)
+{
+	return NULL;
 }

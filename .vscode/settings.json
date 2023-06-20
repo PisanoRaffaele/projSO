@@ -1,5 +1,7 @@
 {
 	"files.associations": {
-		"array": "c"
+		"array": "c",
+		"errno.h": "c",
+		"typeinfo": "c"
 	}
 }
