@@ -18,11 +18,11 @@
 #define DISK_SIZE 4096 * 2 + 1024 * 4096 // META_DATA_SIZE + DISK_DATA_SIZE
 #define DISK_BLOCKS (4096 * 2 + 1024 * 4096) / 4096 // DISK_SIZE / BLOCK_SIZE
 
-#define MAX_OPEN_FILES 10
+#define MAX_OPEN_FILES 20
 #define MAX_FCBS 1000
 #define MAX_FILE_NAME_LENGTH 12
 
-#define MAX_DIR_IN_MIN ( BLOCK_SIZE - 28 - 8 ) / 8
+#define MAX_DIR_IN_MIN ( BLOCK_SIZE - 32 - 8 ) / 8
 #define MAX_DIR_IN_BLOCK ( BLOCK_SIZE - 8 ) / 8
 
 #define ROOT_DIR_NAME "$ROOT$"
@@ -49,7 +49,8 @@ typedef struct FCB{
 	int32_t	isDirectory; // (0 = false, 1 = true)
 	int32_t	BlockCount;
 	int32_t	FATNextIndex;
-	char	data[BLOCK_SIZE - 28]; // 4068 bytes
+	int32_t filePointer; // -1 if dir
+	char	data[BLOCK_SIZE - 32]; // 4064 bytes
 } FCB;
 
 
@@ -69,7 +70,7 @@ typedef struct FileSystemFAT {
 
 typedef struct DirectoryEntry {
 	int32_t	numFCBS;
-	int32_t	isMin;
+	int32_t	isLast;
 	FCB		*FCBS[MAX_DIR_IN_BLOCK]; // 511 pointers * 8 bytes each = 4088 bytes
 } DirectoryEntry;
 
@@ -79,17 +80,17 @@ typedef struct FileEntry {
 } FileEntry;
 
 
-// 4068 bytes
+// 4064 bytes
 typedef struct DirectoryEntryMin {
 	int32_t	numFCBS;
-	int32_t	isMin;
-	FCB		*FCBS[MAX_DIR_IN_MIN]; // 508 pointers * 8 bytes each = 4064 bytes
+	int32_t	isLast;
+	FCB		*FCBS[MAX_DIR_IN_MIN]; // 507 pointers * 8 bytes each = 4056 bytes
 } DirectoryEntryMin;
 
 
-// 4068 bytes
+// 4064 bytes
 typedef struct FileEntryMin {
-	char	data[BLOCK_SIZE - 28]; // 4072 bytes
+	char	data[BLOCK_SIZE - 32];
 } FileEntryMin;
 
 
@@ -98,7 +99,6 @@ typedef struct FileHandle {
 	FCB				*fcb;
 	int				filePointer;
 } FileHandle;
-
 
 
 #endif

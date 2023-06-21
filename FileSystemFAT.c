@@ -6,14 +6,14 @@ int pathIsValid(char *path) {
 
 	if (!path)
 	{
-		printf("Null path\n");
+		printf(COLOR_RED"Null path\n"COLOR_RESET);
 		return 0;
 	}
     for (int i = 0; path[i] != '\0'; i++)
 	{
-        if (path[i] == '.' || count >= MAX_FILE_NAME_LENGTH)
+        if (path[i] == '.' || count >= MAX_FILE_NAME_LENGTH || path[i] == ' ')
 		{
-			printf("Invalid path\n");
+			printf(COLOR_RED"Invalid path\n"COLOR_RESET);
 			return 0;
 		}
 		if (path[i] == '/')
@@ -31,7 +31,7 @@ int nameIsValid(char *name) {
 
 	if (!name)
 	{
-		printf("Null path\n");
+		printf(COLOR_RED"Null path\n"COLOR_RESET);
 		return 0;
 	}
 	for (i = 0; name[i] != '\0'; i++)
@@ -40,7 +40,7 @@ int nameIsValid(char *name) {
 			countDot++;
 		else if (name[i] == '/')
 		{
-			printf("Invalid File Name\n");
+			printf(COLOR_RED"Invalid File Name\n"COLOR_RESET);
 			return 0;
 		}
 		else if (name[i] != ' ')
@@ -48,7 +48,7 @@ int nameIsValid(char *name) {
 	}
 	if (countDot > 1 ||  i >= MAX_FILE_NAME_LENGTH || count == 0)
 	{
-		printf("Invalid File Name\n");
+		printf(COLOR_RED"Invalid File Name\n"COLOR_RESET);
 		return 0;
 	}
 	return 1;
@@ -65,6 +65,7 @@ FileHandle *createFile(FileSystemFAT *fs, char *path, char *name, mode_type mode
 	FCB					*currentFCB;
 	FCB					*scanningFCB;
 	FCB					*retFCB;
+	FileHandle 			*ret;
 
 	if (!nameIsValid(name))
 		return NULL;
@@ -72,91 +73,64 @@ FileHandle *createFile(FileSystemFAT *fs, char *path, char *name, mode_type mode
 	if (!pathIsValid(path))
 		return NULL;
 
-	if (path == "")
+	path_copy = strdup(path);
+	pathSegment = strtok(path_copy, "/");
+
+	if (strcmp(pathSegment, ROOT_DIR_NAME) != 0)
 	{
-		retFCB = createFCB(fs, name, mode, 0);
-		FileHandle *ret = (FileHandle *)malloc(sizeof(FileHandle));
+		printf("%s",pathSegment);
+		printf(COLOR_RED"\npath doesn't start with "COLOR_RESET);
+		printf(ROOT_DIR_NAME);
+		printf("\n");
+		return NULL;
+	}
+	currentFCB = fs->rootFCB;
+
+	pathSegment = strtok(NULL, "/");
+	if (pathSegment != NULL)
+	{
+		firstDir = (DirectoryEntryMin *)currentFCB->data;
+		if (!firstDir->numFCBS == 0)
+			scanningFCB = findFCB((void *)firstDir, pathSegment, 1);
+		if (scanningFCB == NULL)
+			scanningFCB = createFCB(fs, currentFCB, pathSegment, R, 1);
+		currentFCB = scanningFCB;
+		pathSegment = strtok(NULL, "/");
+	}
+	while(pathSegment != NULL)
+	{
+		scanningFCB = NULL;
+		currentDir = (DirectoryEntry *) currentFCB->data;
+		if (!currentDir->numFCBS == 0)
+			scanningFCB = findFCB((void *)currentDir, pathSegment, 0);
+		if (scanningFCB == NULL)
+			scanningFCB = createFCB(fs, currentFCB, pathSegment, R, 1);
+		currentFCB = scanningFCB;
+		pathSegment = strtok(NULL, "/");
+	}
+
+	if (currentFCB == fs->rootFCB)
+		retFCB = findFCB((void *)currentFCB->data, name, 1);
+	else
+		retFCB = findFCB((void *)currentFCB->data, name, 0);
+
+	if(retFCB == NULL)
+	{
+		retFCB = createFCB(fs, currentFCB, name, mode, 0);
+		ret = newOpenFileInfo();
+		if(!ret)
+			return NULL;
 		ret->fileSystem = fs;
 		ret->fcb = retFCB;
 		ret->filePointer = 0;
 		return ret;
 	}
-
-	path_copy = strdup(path);
-	pathSegment = strtok(path_copy, "/");
-
-	currentFCB = fs->rootFCB;
-	if (pathSegment != NULL)
-		firstDir = (DirectoryEntryMin *)currentFCB->data;
-		if (!firstDir->numFCBS == 0)
-		{
-			i = 0;
-			count = 0;
-			while (count < firstDir->numFCBS)
-			{
-				scanningFCB = firstDir->FCBS[i++];
-				if (scanningFCB == NULL)
-					continue;
-				else if (strcmp(scanningFCB->fileName, pathSegment) == 0)
-				{
-					currentFCB = scanningFCB;
-					break;
-				}
-				else
-					count++;
-			}
-		}
-	while(pathSegment != NULL)
+	else
 	{
-		i = 0;
-		count = 0;
-		while(count < firstDir->numFCBS)
-		{
-			scanningFCB = firstDir->FCBS[i];
-			if (scanningFCB == NULL)
-			{
-				i++;
-				continue;
-			}
-			else if (strcmp(scanningFCB->fileName, pathSegment) == 0)
-			{
-				currentFCB = scanningFCB;
-				currentDir = currentFCB->data;
-				pathSegment = strtok(NULL, "/");
-				break;
-			}
-			else
-			{
-				i++;
-				count++;
-			}
-		}
-		if (count == currentDir->numFCBS)
-		{
-			printf("Path does not exist\n");
-			return NULL;
-			//create Directory
-
-		}
+		ret = findOpenFileInfo(retFCB);
+		updateFilePointer(ret);
+		return ret;
 	}
-
-
-
-
-
-
-	// i = 0;
-	// while (i < MAX_FCBS && i < fs->numFCBS)
-	// {
-	// 	if (fs->fcbList[i] == NULL)
-	// 		continue;
-	// 	if (strcmp(fs->fcbList[i]->fileName, pathname) == 0)
-	// 	{
-	// 		printf("File already exists\n");
-	// 		return NULL;
-	// 	}
-	// 	i++;
-	// }
 }
 
 void eraseFile(char *fileName)
@@ -173,13 +147,14 @@ void createDirectory(FileSystemFAT *fs, char *path, char *dirName)
 	FCB *parent = createNewPath(path);
 	if (parent == NULL)
 	{
-		printf("Parent problem\n");
+		printf(COLOR_RED"Parent problem\n"COLOR_RESET);
 		return;
 	}
-	FCB *newDir = createFCB(fs, dirName, R, 1);
+	// (if esiste return)
+	FCB *newDir = createFCB(fs, parent, dirName, R, 1);
 	if (newDir == NULL)
 	{
-		printf("New dir problem\n");
+		printf(COLOR_RED"New dir problem\n"COLOR_RESET);
 		return;
 	}
 

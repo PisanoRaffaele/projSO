@@ -28,7 +28,7 @@ FileSystemFAT *FS_init()
 	for (i = 0; i < MAX_FCBS; i++)
 		FAT->fcbList[i] = 0;
 
-	FCB *root = createFCB(FAT, ROOT_DIR_NAME, R, 1);
+	FCB *root = createFCB(FAT, NULL, ROOT_DIR_NAME, R, 1);
 
 	FAT->rootFCB = root;
 
@@ -41,23 +41,19 @@ FileSystemFAT *FS_init()
 
 int main() {
 	FileSystemFAT *fs = FS_init();
-	// uintptr_t f;
 
-	//createFile(fs, "$root$/user/prova/test.txt", R);
+	//FileHandle *fh = createFile(fs, "$ROOT$/user/prova/", "prova.text", R);
 
-	//printFS(fs, "bitMap");
+	printFS(fs, "bitMap");
 
-	// FCB *f = createFCB(fs, "test.txt", R, 0);
+	printFS(fs, "fcbList");
 
-	// printFS(fs, "fcbList");
 
-	// createFCB(fs, "test2.txt", R, 0);
+	//fh = createFile(fs, "$ROOT$/user/prova/", "prova.text", R);
 
-	// printFS(fs, "fcbList");
+	printFS(fs, "bitMap");
 
-	// deleteFCB(fs, f);
-
-	// printFS(fs, "fcbList");
+	printFS(fs, "fcbList");
 
 }
 
