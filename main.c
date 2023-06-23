@@ -1,6 +1,59 @@
 #include "FileSystemFAT.h"
-#include "utils.h"
 #include "prints.h"
+#include <stdbool.h>
+
+void reverse(char str[], int length)
+{
+    int start = 0;
+    int end = length - 1;
+    while (start < end) {
+        char temp = str[start];
+        str[start] = str[end];
+        str[end] = temp;
+        end--;
+        start++;
+    }
+}
+// Implementation of citoa()
+char* citoa(int num, char* str, int base)
+{
+    int i = 0;
+    bool isNegative = false;
+
+    /* Handle 0 explicitly, otherwise empty string is
+     * printed for 0 */
+    if (num == 0) {
+        str[i++] = '0';
+        str[i] = '\0';
+        return str;
+    }
+
+    // In standard itoa(), negative numbers are handled
+    // only with base 10. Otherwise numbers are
+    // considered unsigned.
+    if (num < 0 && base == 10) {
+        isNegative = true;
+        num = -num;
+    }
+
+    // Process individual digits
+    while (num != 0) {
+        int rem = num % base;
+        str[i++] = (rem > 9) ? (rem - 10) + 'a' : rem + '0';
+        num = num / base;
+    }
+
+    // If number is negative, append '-'
+    if (isNegative)
+        str[i++] = '-';
+
+    str[i] = '\0'; // Append string terminator
+
+    // Reverse the string
+    reverse(str, i);
+
+    return str;
+}
 
 FileSystemFAT *FS_init()
 {
@@ -44,16 +97,26 @@ int main() {
 
 	//FileHandle *fh = createFile(fs, "$ROOT$/user/prova/", "prova.text", R);
 
-	printFS(fs, "bitMap");
+	char *name = calloc(10, 1);
 
-	printFS(fs, "fcbList");
+	name[0] = 'c';
+	for (int i = 0; i < 520; i++)
+	{
+		citoa(i, &name[1], 10);
+		close(createFile(fs, "$ROOT$/user/prova/", name, R));
 
+	}
 
 	//fh = createFile(fs, "$ROOT$/user/prova/", "prova.text", R);
 
-	printFS(fs, "bitMap");
+    //printOpenFileInfo();
+	//printFS(fs, "bitMap");
 
-	printFS(fs, "fcbList");
+	printFS(fs, "directoryTree");
+
+    //printFS(fs, "tableFAT");
+
+    //printFS(fs, "fcbList");
 
 }
 

@@ -1,8 +1,5 @@
 #include "utils.h"
 
-FileHandle *openFileInfo[MAX_OPEN_FILES];
-int openedFiles = 0;
-
 char *getDataBlock(FileSystemFAT *fs)
 {
 	for (int i = 0; i < sizeof(fs->bitMap); i++) {
@@ -16,7 +13,7 @@ char *getDataBlock(FileSystemFAT *fs)
 			}
 		}
 	}
-	perror(COLOR_RED"No free block"COLOR_RESET);
+	printf(RED"No free block"RESET);
 	return NULL;
 }
 
@@ -50,7 +47,7 @@ FCB *createFCB(FileSystemFAT *fs, FCB *dirFCB, char *fileName, mode_type mode, i
 {
 	if (fs->numFCBS >= MAX_FCBS)
 	{
-		perror(COLOR_RED"No more FCBs"COLOR_RESET);
+		printf(RED"No more FCBs"RESET);
 		return NULL;
 	}
 
@@ -73,14 +70,25 @@ FCB *createFCB(FileSystemFAT *fs, FCB *dirFCB, char *fileName, mode_type mode, i
 		fcb->filePointer = 0;
 	strncpy(fcb->fileName, fileName, MAX_FILE_NAME_LENGTH - 1);
 	if (dirFCB != NULL)
-		addFcbToDirFcb(fs, fcb, dirFCB);
+		addToDir(fs, fcb, dirFCB);
 	return fcb;
 }
 
-void deleteFCB(FileSystemFAT *fs, FCB *fcb)
+int deleteFCB(FileSystemFAT *fs, FCB *fcb)
 {
 	int count = 0;
 	int i = 0;
+	DirectoryEntryMin *deMin;
+
+	if (fcb->isDirectory)
+	{
+		deMin = (DirectoryEntryMin *)fcb->data;
+		if (deMin->numFCBS > 0)
+		{
+			printf(PURPLE"Directory not empty"RESET);
+			return -1;
+		}
+	}
 
 	while (count < fs->numFCBS)
 	{
@@ -94,6 +102,8 @@ void deleteFCB(FileSystemFAT *fs, FCB *fcb)
 	fs->fcbList[i] = NULL;
 
 	removeBit(fs->bitMap, getBlockIdx(fs, (char *)fcb));
+
+	return 0;
 }
 
 FileEntry *getNextDataBlock(FileSystemFAT *fs, FCB *fileFcb)
@@ -124,21 +134,45 @@ FileEntry *getNextDataBlock(FileSystemFAT *fs, FCB *fileFcb)
 	return fe;
 }
 
-DirectoryEntry *getNextDirBlock(FileSystemFAT *fs, FCB *dirFcb)
+DirectoryEntry *getDirBlock(FileSystemFAT *fs, FCB *dirFcb, int deep)
 {
-	DirectoryEntry *de;
+	int idx;
+	if (deep == 0)
+	{
+		printf("deep <= 0\n");
+		return NULL;
+	}
+	deep--;
+	idx = dirFcb->FATNextIndex;
+	while (idx != -1 && deep > 0)
+	{
+		idx = fs->tableFAT[idx];
+		deep--;
+	}
+	if (idx != -1)
+		return (DirectoryEntry *) getBlockPointer(fs, idx);
+	else
+		return NULL;
+}
+
+DirectoryEntry *createDirBlock(FileSystemFAT *fs, FCB *dirFcb, int deep)
+{
+	DirectoryEntry	*de;
 	int				idx;
 	int				pre;
 
+	de = getDirBlock(fs, dirFcb, deep);
+	if (de != NULL)
+		return de;
+
+	deep--;
 	pre = -1;
 	idx = dirFcb->FATNextIndex;
-	while (idx != -1)
+	while (idx != -1 && deep > 0)
 	{
-		de = (DirectoryEntry *) getBlockPointer(fs, idx);
-		if (de->numFCBS < MAX_DIR_IN_MIN)
-			return de;
 		pre = idx;
-		idx = fs->tableFAT[pre];
+		idx = fs->tableFAT[idx];
+		deep--;
 	}
 	de = (DirectoryEntry *) getDataBlock(fs);
 	if (de == NULL)
@@ -152,8 +186,72 @@ DirectoryEntry *getNextDirBlock(FileSystemFAT *fs, FCB *dirFcb)
 	return de;
 }
 
+void removeFromDir(FileSystemFAT *fs, FCB *dirFCB, FCB *fcb)
+{
+	DirectoryEntryMin	*deMin;
+	DirectoryEntry		*de;
+	int					idx;
+	int					i;
+	int 				pre;
 
-void addFcbToDirFcb(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
+	i = 0;
+	deMin = (DirectoryEntryMin *) &dirFCB->data;
+	while (i < MAX_DIR_IN_BLOCK)
+	{
+		if (deMin->FCBS[i] == fcb)
+		{
+			deMin->numFCBS = deMin->numFCBS - 1;
+			deMin->FCBS[i] = NULL;
+			return;
+		}
+		i++;
+	}
+	idx = dirFCB->FATNextIndex;
+	while (1)
+	{
+		de = (DirectoryEntry *) getBlockPointer(fs, idx);
+		i = 0;
+		while (i < MAX_DIR_IN_BLOCK)
+		{
+			if (de->FCBS[i] == fcb)
+			{
+				de->numFCBS = de->numFCBS - 1;
+				de->FCBS[i] = NULL;
+				dirFCB->BlockCount -= 1;
+				if (de->numFCBS == 0)
+				{
+					removeFatIndex(fs, dirFCB);
+					removeBit(fs->bitMap, getBlockIdx(fs, (char *)de));
+				}
+				return;
+			}
+			i++;
+		}
+	}
+}
+
+void removeFatIndex(FileSystemFAT *fs, FCB *dirFCB)
+{
+	int idx;
+	int pre;
+	int prepre;
+
+	pre = -1;
+	prepre = -1;
+	idx = dirFCB->FATNextIndex;
+	while (idx != -1)
+	{
+		prepre = pre;
+		pre = idx;
+		idx = fs->tableFAT[idx];
+	}
+	if (prepre == -1)
+		dirFCB->FATNextIndex = -1;
+	else
+		fs->tableFAT[prepre] = -1;
+}
+
+void addToDir(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
 {
 	DirectoryEntryMin	*deMin;
 	DirectoryEntry		*de;
@@ -169,7 +267,7 @@ void addFcbToDirFcb(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
 		{
 			if (deMin->FCBS[i] == NULL)
 			{
-				deMin->numFCBS++;
+				deMin->numFCBS = deMin->numFCBS + 1;
 				deMin->FCBS[i] = fcb;
 				break;
 			}
@@ -178,10 +276,13 @@ void addFcbToDirFcb(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
 	}
 	else
 	{
-		de = getNextDirBlock(fs, dirFCB);
+		int deep = 1;
+		de = createDirBlock(fs, dirFCB, deep);
+		while (de != NULL && de->numFCBS == MAX_DIR_IN_BLOCK)
+			de = getDirBlock(fs, dirFCB, ++deep);
 		if (de == NULL)
 		{
-			perror(COLOR_RED"No more directory blocks"COLOR_RESET);
+			perror(RED"No more directory blocks"RESET);
 			return;
 		}
 		while (1)
@@ -195,7 +296,6 @@ void addFcbToDirFcb(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
 			i++;
 		}
 	}
-
 }
 
 FCB *findFCB(void *c_dir, char *name, int isMin)
@@ -239,13 +339,17 @@ FCB *findFCB(void *c_dir, char *name, int isMin)
 	return NULL;
 }
 
-FileHandle *newOpenFileInfo()
+
+
+
+FileHandle *newOpenFileInfo(FileHandle **openFileInfo, int *openedFiles)
 {
 	int i = 0;
-	FileHandle * ret;
-	if (openedFiles >= MAX_OPEN_FILES)
+	FileHandle *ret;
+
+	if (*openedFiles >= MAX_OPEN_FILES)
 	{
-		perror(COLOR_RED"too much files opened"COLOR_RESET);
+		printf(RED"too much files opened\n"RESET);
 		return NULL;
 	}
 
@@ -256,14 +360,15 @@ FileHandle *newOpenFileInfo()
 		if (openFileInfo[i] == NULL)
 		{
 			openFileInfo[i] = ret;
-			openedFiles++;
+			*openedFiles = *openedFiles + 1;
 			return ret;
 		}
 		i++;
 	}
 }
 
-FileHandle *findOpenFileInfo(FCB *toFind)
+
+FileHandle *findOpenFileInfo(FileHandle **openFileInfo, FCB *toFind)
 {
 	int i = 0;
 	while (i < MAX_OPEN_FILES)
@@ -272,32 +377,103 @@ FileHandle *findOpenFileInfo(FCB *toFind)
 			return openFileInfo[i];
 		i++;
 	}
-	perror(COLOR_RED"file Not Found"COLOR_RESET);
+	perror(RED"file Not Found"RESET);
 }
 
-void remOpenFileInfo(FileHandle *elem)
+int remOpenFileInfo(FileHandle **openFileInfo, int *openedFiles, FileHandle *elem)
 {
 	int i = 0;
 	while (i < MAX_OPEN_FILES)
 	{
 		if (openFileInfo[i] == elem)
 		{
-			openedFiles--;
+			*openedFiles = *openedFiles - 1;
 			openFileInfo[i] = NULL;
 			free(elem);
-			return;
+			return 0;
 		}
 		i++;
 	}
-	perror(COLOR_RED"file Not Found"COLOR_RESET);
+	printf(RED"file Not Opened"RESET);
+	return -1;
 }
+
 
 void updateFilePointer(FileHandle *fileInfo)
 {
 	fileInfo->filePointer = fileInfo->fcb->filePointer;
 }
 
-FCB *createNewPath(char *path)
+
+
+int pathIsValid(char *path)
 {
-	return NULL;
+	int count = 0;
+
+	char *path_copy = strdup(path);
+	char *pathSegment = strtok(path_copy, "/");
+
+	if (pathSegment != NULL)
+		pathSegment = strtok(NULL, "/");
+
+	while (pathSegment != NULL)
+	{
+		if (strcmp(pathSegment, ROOT_DIR_NAME) == 0)
+		{
+			printf(RED"Invalid path\n"RESET);
+			return 0;
+		}
+		pathSegment = strtok(NULL, "/");
+	}
+
+
+	if (!path)
+	{
+		printf(RED"Null path\n"RESET);
+		return 0;
+	}
+    for (int i = 0; path[i] != '\0'; i++)
+	{
+        if (path[i] == '.' || count >= MAX_FILE_NAME_LENGTH || path[i] == ' ')
+		{
+			printf(RED"Invalid path\n"RESET);
+			return 0;
+		}
+		if (path[i] == '/')
+			count = 0;
+		else
+			count++;
+    }
+	return 1;
+}
+
+int nameIsValid(char *name)
+{
+	int countDot = 0;
+	int count = 0;
+	int i;
+
+	if (!name)
+	{
+		printf(RED"Null path\n"RESET);
+		return 0;
+	}
+	for (i = 0; name[i] != '\0'; i++)
+	{
+		if (name[i] == '.')
+			countDot++;
+		else if (name[i] == '/')
+		{
+			printf(RED"Invalid File Name\n"RESET);
+			return 0;
+		}
+		else if (name[i] != ' ')
+			count++;
+	}
+	if (countDot > 1 ||  i >= MAX_FILE_NAME_LENGTH || count == 0)
+	{
+		printf(RED"Invalid File Name\n"RESET);
+		return 0;
+	}
+	return 1;
 }

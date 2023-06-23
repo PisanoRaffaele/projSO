@@ -15,30 +15,41 @@ void removeBit(char *bitMap, int index);
 
 void setBit(char *bitMap, int index);
 
+void removeFatIndex(FileSystemFAT *fs, FCB *dirFCB);
+
 
 FCB *createFCB(FileSystemFAT *fs, FCB *fcbDir, char *fileName, mode_type mode, int32_t isDirectory);
 
-void deleteFCB(FileSystemFAT *fs, FCB *fcb);
+int deleteFCB(FileSystemFAT *fs, FCB *fcb);
 
-DirectoryEntry *getNextDirBlock(FileSystemFAT *fs, FCB *dirFcb);
+FCB *findFCB(void *c_dir, char *name, int isMin);
+
+void addToDir(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB);
+
+void removeFromDir(FileSystemFAT *fs, FCB *dirFCB, FCB *fcb);
+
+
+
+DirectoryEntry *getDirBlock(FileSystemFAT *fs, FCB *dirFcb, int deep);
+
+DirectoryEntry *createDirBlock(FileSystemFAT *fs, FCB *dirFcb, int deep);
 
 FileEntry *getNextDataBlock(FileSystemFAT *fs, FCB *fileFcb);
 
 
-void addFcbToDirFcb(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB);
 
-FCB *findFCB(void *c_dir, char *name, int isMin);
+FileHandle *newOpenFileInfo(FileHandle **openFileInfo, int *openedFiles);
 
+FileHandle *findOpenFileInfo(FileHandle **openFileInfo, FCB *toFind);
 
-FileHandle *newOpenFileInfo();
-
-FileHandle *findOpenFileInfo(FCB *toFind);
-
-void remOpenFileInfo(FileHandle *elem);
+int remOpenFileInfo(FileHandle **openFileInfo, int *openedFiles, FileHandle *elem);
 
 void updateFilePointer(FileHandle *fileInfo);
 
 
-FCB *createNewPath(char *path);
+
+int pathIsValid(char *path);
+
+int nameIsValid(char *name);
 
 #endif

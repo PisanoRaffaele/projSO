@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <errno.h>
 
+
 #define DATA_BLOCKS 1024
 #define BLOCK_SIZE 4096 // bytes
 
@@ -27,11 +28,22 @@
 
 #define ROOT_DIR_NAME "$ROOT$"
 
-#define COLOR_RED     "\x1b[31m"
-#define COLOR_BLUE     "\x1b[34m"
-#define COLOR_GREEN    "\x1b[32m"
-#define COLOR_CYAN     "\x1b[36m"
-#define COLOR_RESET   "\x1b[0m"
+#define RED     "\x1b[31m"
+#define BLUE     "\x1b[34m"
+#define GREEN    "\x1b[32m"
+#define CYAN     "\x1b[36m"
+#define RESET   "\x1b[0m"
+#define MAGENTA  "\x1b[35m"
+#define YELLOW   "\x1b[33m"
+#define WHITE    "\x1b[37m"
+#define BLACK    "\x1b[30m"
+#define PURPLE   "\x1b[35m"
+#define BOLDBLACK    "\033[1m\033[30m"
+#define BOLDRED     "\033[1m\033[31m"
+#define BOLDGREEN   "\033[1m\033[32m"
+#define BOLDYELLOW  "\033[1m\033[33m"
+#define BOLDBLUE    "\033[1m\033[34m"
+#define BOLDMAGENTA "\033[1m\033[35m"
 
 #define EX_W_R 7
 #define EX_W 6
