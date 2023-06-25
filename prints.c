@@ -4,7 +4,6 @@
 void printFCB(FCB *fcb) {
     printf("   FCB: ");
     printf("	fileName: %s | ", fcb->fileName);
-    printf("permissions: %d | ", fcb->permissions);
     printf("isDirectory: %d | ", fcb->isDirectory);
     printf("BlockCount: %d | ", fcb->BlockCount);
     printf("FATNextIndex: %d | ", fcb->FATNextIndex);

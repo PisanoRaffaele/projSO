@@ -81,7 +81,7 @@ FileSystemFAT *FS_init()
 	for (i = 0; i < MAX_FCBS; i++)
 		FAT->fcbList[i] = 0;
 
-	FCB *root = createFCB(FAT, NULL, ROOT_DIR_NAME, R, 1);
+	FCB *root = createFCB(FAT, NULL, ROOT_DIR_NAME, 1);
 
 	FAT->rootFCB = root;
 

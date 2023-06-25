@@ -18,11 +18,13 @@ void setBit(char *bitMap, int index);
 void removeFatIndex(FileSystemFAT *fs, FCB *dirFCB);
 
 
-FCB *createFCB(FileSystemFAT *fs, FCB *fcbDir, char *fileName, mode_type mode, int32_t isDirectory);
+FCB *createFCB(FileSystemFAT *fs, FCB *fcbDir, char *fileName, int32_t isDirectory);
 
 int deleteFCB(FileSystemFAT *fs, FCB *fcb);
 
-FCB *findFCB(void *c_dir, char *name, int isMin);
+FCB *findFCB(FileSystemFAT *fs, FCB *dirFcb, char *name);
+
+FCB *createDirectoryWrapped(FileSystemFAT *fs, char *path);
 
 void addToDir(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB);
 
@@ -44,7 +46,7 @@ FileHandle *findOpenFileInfo(FileHandle **openFileInfo, FCB *toFind);
 
 int remOpenFileInfo(FileHandle **openFileInfo, int *openedFiles, FileHandle *elem);
 
-void updateFilePointer(FileHandle *fileInfo);
+void updateFileInfo(FileHandle *fileInfo, mode_type mode);
 
 
 
