@@ -55,7 +55,7 @@ FCB *createFCB(FileSystemFAT *fs, FCB *dirFCB, char *fileName, int32_t isDirecto
 	if (fcb == NULL)
 		return NULL;
 
-	fs->numFCBS++;
+	fs->numFCBS = fs->numFCBS + 1;
 	int i = 0;
 	while (fs->fcbList[i] != NULL)
 		i++;
@@ -63,10 +63,6 @@ FCB *createFCB(FileSystemFAT *fs, FCB *dirFCB, char *fileName, int32_t isDirecto
 	fcb->isDirectory = isDirectory;
 	fcb->BlockCount = 1;
 	fcb->FATNextIndex = -1;
-	if (isDirectory)
-		fcb->filePointer = -1;
-	else
-		fcb->filePointer = 0;
 	strncpy(fcb->fileName, fileName, MAX_FILE_NAME_LENGTH - 1);
 	if (dirFCB != NULL)
 		addToDir(fs, fcb, dirFCB);
@@ -129,7 +125,7 @@ FileEntry *getNextDataBlock(FileSystemFAT *fs, FCB *fileFcb)
 		fileFcb->FATNextIndex = idx;
 	else
 		fs->tableFAT[pre] = idx;
-	fileFcb->BlockCount++;
+	fileFcb->BlockCount = fileFcb->BlockCount + 1;
 	return fe;
 }
 
@@ -181,7 +177,7 @@ DirectoryEntry *createDirBlock(FileSystemFAT *fs, FCB *dirFcb, int deep)
 		dirFcb->FATNextIndex = idx;
 	else
 		fs->tableFAT[pre] = idx;
-	dirFcb->BlockCount++;
+	dirFcb->BlockCount = dirFcb->BlockCount + 1;
 	return de;
 }
 
@@ -278,7 +274,7 @@ void addToDir(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
 		int deep = 1;
 		de = createDirBlock(fs, dirFCB, deep);
 		while (de != NULL && de->numFCBS == MAX_DIR_IN_BLOCK)
-			de = getDirBlock(fs, dirFCB, ++deep);
+			de = createDirBlock(fs, dirFCB, ++deep);
 		if (de == NULL)
 		{
 			perror(RED"No more directory blocks"RESET);
@@ -288,7 +284,7 @@ void addToDir(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
 		{
 			if (de->FCBS[i] == NULL)
 			{
-				de->numFCBS++;
+				de->numFCBS = de->numFCBS + 1;
 				de->FCBS[i] = fcb;
 				break;
 			}
@@ -339,11 +335,10 @@ FCB *findFCB(FileSystemFAT *fs, FCB *dirFcb, char *name)
 
 
 
-
-FileHandle *newOpenFileInfo(FileHandle **openFileInfo, int *openedFiles)
+openFileInfo *newOpenFileInfo(openFileInfo **ofiTable, int *openedFiles)
 {
 	int i = 0;
-	FileHandle *ret;
+	openFileInfo *ret;
 
 	if (*openedFiles >= MAX_OPEN_FILES)
 	{
@@ -351,14 +346,15 @@ FileHandle *newOpenFileInfo(FileHandle **openFileInfo, int *openedFiles)
 		return NULL;
 	}
 
-	ret = (FileHandle *) malloc(sizeof(FileHandle));
+	ret = (openFileInfo *) malloc(sizeof(openFileInfo));
 
 	while (i < MAX_OPEN_FILES)
 	{
-		if (openFileInfo[i] == NULL)
+		if (ofiTable[i] == NULL)
 		{
-			openFileInfo[i] = ret;
+			ofiTable[i] = ret;
 			*openedFiles = *openedFiles + 1;
+			ret->numFileHandle = 0;
 			return ret;
 		}
 		i++;
@@ -366,27 +362,27 @@ FileHandle *newOpenFileInfo(FileHandle **openFileInfo, int *openedFiles)
 }
 
 
-FileHandle *findOpenFileInfo(FileHandle **openFileInfo, FCB *toFind)
+openFileInfo *findOpenFileInfo(openFileInfo **ofiTable, FCB *toFind)
 {
 	int i = 0;
 	while (i < MAX_OPEN_FILES)
 	{
-		if (openFileInfo[i]->fcb == toFind)
-			return openFileInfo[i];
+		if (ofiTable[i]->fcb == toFind)
+			return ofiTable[i];
 		i++;
 	}
-	perror(RED"file Not Found"RESET);
+	return NULL;
 }
 
-int remOpenFileInfo(FileHandle **openFileInfo, int *openedFiles, FileHandle *elem)
+int remOpenFileInfo(openFileInfo **ofiTable, int *openedFiles, openFileInfo *elem)
 {
 	int i = 0;
 	while (i < MAX_OPEN_FILES)
 	{
-		if (openFileInfo[i] == elem)
+		if (ofiTable[i] == elem)
 		{
 			*openedFiles = *openedFiles - 1;
-			openFileInfo[i] = NULL;
+			ofiTable[i] = NULL;
 			free(elem);
 			return 0;
 		}
@@ -396,14 +392,22 @@ int remOpenFileInfo(FileHandle **openFileInfo, int *openedFiles, FileHandle *ele
 	return -1;
 }
 
-
-void updateFileInfo(FileHandle *fileInfo, mode_type mode)
+FileHandle *newFileHandle(openFileInfo *ofi, mode_type mode)
 {
-	fileInfo->filePointer = fileInfo->fcb->filePointer;
-	if (fileInfo->permissions < mode)
-		fileInfo->permissions = mode;
-}
+	FileHandle *ret;
 
+	ret = (FileHandle *) malloc(sizeof(FileHandle));
+	if (ret == NULL)
+	{
+		printf(RED"malloc error"RESET);
+		return NULL;
+	}
+	ret->permissions = mode;
+	ret->info = ofi;
+	ret->filePointer = 0;
+	ofi->numFileHandle = ofi->numFileHandle + 1;
+	return ret;
+}
 
 
 int pathIsValid(char *path)
@@ -510,7 +514,11 @@ FCB *createDirectoryWrapped(FileSystemFAT *fs, char *path)
 		oldFCB = currentFCB;
 		currentFCB = findFCB(fs, oldFCB, pathSegment);
 		if (currentFCB == NULL)
+		{
 			currentFCB = createFCB(fs, oldFCB, pathSegment, 1);
+			if (currentFCB == NULL)
+				return NULL;
+		}
 		pathSegment = strtok(NULL, "/");
 	}
 	return currentFCB;

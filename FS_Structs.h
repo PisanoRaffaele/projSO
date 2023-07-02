@@ -23,7 +23,7 @@
 #define MAX_FCBS 1000
 #define MAX_FILE_NAME_LENGTH 12
 
-#define MAX_DIR_IN_MIN ( BLOCK_SIZE - 28 - 4 ) / 8
+#define MAX_DIR_IN_MIN ( BLOCK_SIZE - 32 ) / 8
 #define MAX_DIR_IN_BLOCK ( BLOCK_SIZE - 8 ) / 8
 
 #define ROOT_DIR_NAME "$ROOT$"
@@ -60,8 +60,7 @@ typedef struct FCB{
 	int32_t	isDirectory; // (0 = false, 1 = true)
 	int32_t	BlockCount;
 	int32_t	FATNextIndex;
-	int32_t filePointer; // -1 if dir
-	char	data[BLOCK_SIZE - 28]; // 4068 bytes
+	char	data[BLOCK_SIZE - 24]; // 4072 bytes
 } FCB;
 
 
@@ -91,25 +90,33 @@ typedef struct FileEntry {
 } FileEntry;
 
 
-// 4068 bytes
+// 4072 bytes
 typedef struct DirectoryEntryMin {
 	int32_t	numFCBS;
+	int32_t	isLast;
 	FCB		*FCBS[MAX_DIR_IN_MIN]; // 508 pointers * 8 bytes each = 4064 bytes
 } DirectoryEntryMin;
 
 
-// 4064 bytes
+// 4072 bytes
 typedef struct FileEntryMin {
-	char	data[BLOCK_SIZE - 28];
+	char	data[BLOCK_SIZE - 24];
 } FileEntryMin;
 
 
-typedef struct FileHandle {
+
+typedef struct openFileInfo {
 	FileSystemFAT	*fileSystem;
 	FCB				*fcb;
+	int				numFileHandle;
+} openFileInfo;
+
+typedef struct FileHandle {
 	int				filePointer;
 	mode_type		permissions;
+	openFileInfo	*info;
 } FileHandle;
+
 
 
 #endif

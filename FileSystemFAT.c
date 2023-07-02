@@ -1,7 +1,7 @@
 #include "FileSystemFAT.h"
 #include "prints.h"
 
-FileHandle *openFileInfo[MAX_OPEN_FILES];
+openFileInfo *ofiTable[MAX_OPEN_FILES];
 int openedFiles = 0;
 
 void printOpenFileInfo()
@@ -11,17 +11,18 @@ void printOpenFileInfo()
 
 	for (int i = 0; i < MAX_OPEN_FILES; i++)
 	{
-		if (openFileInfo[i] != NULL)
-			printf("fileInfo[%d]: %s\n", i, openFileInfo[i]->fcb->fileName);
+		if (ofiTable[i] != NULL)
+			printf("fileInfo[%d]: %s\n", i, ofiTable[i]->fcb->fileName);
 	}
 }
 
 
 FileHandle *createFile(FileSystemFAT *fs, char *path, char *name, mode_type mode)
 {
-	FCB			*currentFCB;
-	FCB			*retFCB;
-	FileHandle	*ret;
+	FCB				*currentFCB;
+	FCB				*retFCB;
+	openFileInfo	*ofi;
+	FileHandle		*ret;
 
 	if (!nameIsValid(name))
 		return NULL;
@@ -32,20 +33,47 @@ FileHandle *createFile(FileSystemFAT *fs, char *path, char *name, mode_type mode
 
 	if(retFCB == NULL)
 	{
-		ret = newOpenFileInfo(openFileInfo, &openedFiles);
-		if(!ret)
+		ofi = newOpenFileInfo(ofiTable, &openedFiles);
+		if(!ofi)
 			return NULL;
+		ret = newFileHandle(ofi, mode);
+		if(!ret)
+		{
+			remOpenFileInfo(ofiTable, &openedFiles, ofi);
+			return NULL;
+		}
 		retFCB = createFCB(fs, currentFCB, name, 0);
-		ret->permissions = mode;
-		ret->fileSystem = fs;
-		ret->fcb = retFCB;
-		ret->filePointer = 0;
+		if (!retFCB)
+		{
+			remOpenFileInfo(ofiTable, &openedFiles, ofi);
+			free(ret);
+			return NULL;
+		}
+		ofi->fileSystem = fs;
+		ofi->fcb = retFCB;
 		return ret;
 	}
 	else
 	{
-		ret = findOpenFileInfo(openFileInfo, retFCB);
-		updateFileInfo(ret, mode);
+		ofi = findOpenFileInfo(ofiTable, retFCB);
+		if (!ofi)
+		{
+			ofi = newOpenFileInfo(ofiTable, &openedFiles);
+			if(!ofi)
+				return NULL;
+			ofi->fileSystem = fs;
+			ofi->fcb = retFCB;
+			ret = newFileHandle(ofi, mode);
+			if(!ret)
+			{
+				remOpenFileInfo(ofiTable, &openedFiles, ofi);
+				return NULL;
+			}
+			return ret;
+		}
+		ret = newFileHandle(ofi, mode);
+		if(!ret)
+			return NULL;
 		return ret;
 	}
 }
@@ -93,6 +121,12 @@ void eraseFile(FileSystemFAT *fs, char *path, char *name)
 
 	oldFCB = currentFCB;
 	currentFCB = findFCB(fs, oldFCB, name);
+
+	if (findOpenFileInfo(ofiTable, currentFCB))
+	{
+		printf(RED"\nCan't delete opened File\n"RESET);
+		return;
+	}
 
 	removeFromDir(fs, oldFCB, currentFCB);
 	deleteFCB(fs, currentFCB);
@@ -237,13 +271,74 @@ void listDirectory(FileSystemFAT *fs, char *path)
 	}
 }
 
-void changeDirectory(FileSystemFAT *fs, char *path, char *newPath)
+void changeDirectory(FileSystemFAT *fs, char *name, char *fileDir, char *newPath)
 {
-	// ? 
+	FCB					*currentFCB;
+	FCB					*oldFCB;
+	FCB					*newDirFCB;
+	char				*path_copy;
+	char				*pathSegment;
+
+	if (!pathIsValid(fileDir))
+		return;
+
+	if (!nameIsValid(name))
+		return NULL;
+
+	path_copy = strdup(fileDir);
+	pathSegment = strtok(path_copy, "/");
+
+	if (strcmp(pathSegment, ROOT_DIR_NAME) != 0)
+	{
+		printf("%s",pathSegment);
+		printf(RED"\npath doesn't start with "RESET);
+		printf(ROOT_DIR_NAME);
+		printf("\n");
+		return NULL;
+	}
+
+	currentFCB = fs->rootFCB;
+
+	pathSegment = strtok(NULL, "/");
+
+	while(pathSegment != NULL)
+	{
+		oldFCB = currentFCB;
+		currentFCB = findFCB(fs, oldFCB, pathSegment);
+		if (currentFCB == NULL)
+		{
+			printf(PURPLE"\nDirectory not found\n"RESET);
+			return;
+		}
+		pathSegment = strtok(NULL, "/");
+	}
+
+	oldFCB = currentFCB;
+	currentFCB = findFCB(fs, oldFCB, name);
+	removeFromDir(fs, oldFCB, currentFCB);
+
+	newDirFCB = createDirectoryWrapped(fs, newPath);
+	addToDir(fs, currentFCB, newDirFCB);
 }
 
 
 int close(FileHandle *fh)
 {
-	return remOpenFileInfo(openFileInfo, &openedFiles, fh);
+	int ret;
+	fh->info->numFileHandle = fh->info->numFileHandle - 1;
+	if (fh->info->numFileHandle == 0)
+		ret = remOpenFileInfo(ofiTable, &openedFiles, fh->info);
+	if (!ret)
+	{
+		fh->info->numFileHandle = fh->info->numFileHandle + 1;
+		return -1;
+	}
+	free(fh);
+	return 0;
+}
+
+
+int fs_read(FileHandle *fd, void *buf, size_t count)
+{
+	
 }

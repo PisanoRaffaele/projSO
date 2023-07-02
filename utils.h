@@ -40,13 +40,14 @@ FileEntry *getNextDataBlock(FileSystemFAT *fs, FCB *fileFcb);
 
 
 
-FileHandle *newOpenFileInfo(FileHandle **openFileInfo, int *openedFiles);
+openFileInfo *newOpenFileInfo(openFileInfo **ofiTable, int *openedFiles);
 
-FileHandle *findOpenFileInfo(FileHandle **openFileInfo, FCB *toFind);
+openFileInfo *findOpenFileInfo(openFileInfo **ofiTable, FCB *toFind);
 
-int remOpenFileInfo(FileHandle **openFileInfo, int *openedFiles, FileHandle *elem);
+int remOpenFileInfo(openFileInfo **ofiTable, int *openedFiles, openFileInfo *elem);
 
-void updateFileInfo(FileHandle *fileInfo, mode_type mode);
+FileHandle *newFileHandle(openFileInfo *ofi, mode_type mode);
+
 
 
 
