@@ -1,21 +1,8 @@
 #include "FileSystemFAT.h"
 #include "prints.h"
 
-openFileInfo *ofiTable[MAX_OPEN_FILES];
-int openedFiles = 0;
-
-void printOpenFileInfo()
-{
-	printf(CYAN "Open Files: \n" RESET);
-	printf("numOpenFiles: %d\n", openedFiles);
-
-	for (int i = 0; i < MAX_OPEN_FILES; i++)
-	{
-		if (ofiTable[i] != NULL)
-			printf("fileInfo[%d]: %s\n", i, ofiTable[i]->fcb->fileName);
-	}
-}
-
+openFileInfo **ofiTable;
+int openedFiles;
 
 FileHandle *createFile(FileSystemFAT *fs, char *path, char *name, mode_type mode)
 {
@@ -28,6 +15,8 @@ FileHandle *createFile(FileSystemFAT *fs, char *path, char *name, mode_type mode
 		return NULL;
 
 	currentFCB = createDirectoryWrapped(fs, path);
+	if (!currentFCB)
+		return NULL;
 
 	retFCB = findFCB(fs, currentFCB, name);
 
@@ -86,7 +75,7 @@ void eraseFile(FileSystemFAT *fs, char *path, char *name)
 	FCB		*oldFCB;
 
 	if (!nameIsValid(name))
-		return NULL;
+		return;
 
 	if (!pathIsValid(path))
 		return;
@@ -97,10 +86,10 @@ void eraseFile(FileSystemFAT *fs, char *path, char *name)
 	if (strcmp(pathSegment, ROOT_DIR_NAME) != 0)
 	{
 		printf("%s",pathSegment);
-		printf(RED"\npath doesn't start with "RESET);
+		printf(RED"\neraseFile: path doesn't start with "RESET);
 		printf(ROOT_DIR_NAME);
 		printf("\n");
-		return NULL;
+		return;
 	}
 
 	currentFCB = fs->rootFCB;
@@ -113,7 +102,7 @@ void eraseFile(FileSystemFAT *fs, char *path, char *name)
 		currentFCB = findFCB(fs, oldFCB, pathSegment);
 		if (currentFCB == NULL)
 		{
-			printf(PURPLE"\nDirectory not found\n"RESET);
+			printf(PURPLE"\neraseFile: Directory not found\n"RESET);
 			return;
 		}
 		pathSegment = strtok(NULL, "/");
@@ -121,10 +110,15 @@ void eraseFile(FileSystemFAT *fs, char *path, char *name)
 
 	oldFCB = currentFCB;
 	currentFCB = findFCB(fs, oldFCB, name);
+	if (currentFCB == NULL)
+	{
+		printf(RED"\neraseFile: File not found\n"RESET);
+		return;
+	}
 
 	if (findOpenFileInfo(ofiTable, currentFCB))
 	{
-		printf(RED"\nCan't delete opened File\n"RESET);
+		printf(RED"\neraseFile: Can't delete opened File\n"RESET);
 		return;
 	}
 
@@ -157,7 +151,7 @@ void eraseDirectory(FileSystemFAT *fs, char *path)
 		printf(RED"\npath doesn't start with "RESET);
 		printf(ROOT_DIR_NAME);
 		printf("\n");
-		return NULL;
+		return;
 	}
 	currentFCB = fs->rootFCB;
 
@@ -214,7 +208,7 @@ void listDirectory(FileSystemFAT *fs, char *path)
 		printf(RED"\npath doesn't start with "RESET);
 		printf(ROOT_DIR_NAME);
 		printf("\n");
-		return NULL;
+		return;
 	}
 
 	currentFCB = fs->rootFCB;
@@ -283,7 +277,7 @@ void changeDirectory(FileSystemFAT *fs, char *name, char *fileDir, char *newPath
 		return;
 
 	if (!nameIsValid(name))
-		return NULL;
+		return;
 
 	path_copy = strdup(fileDir);
 	pathSegment = strtok(path_copy, "/");
@@ -294,7 +288,7 @@ void changeDirectory(FileSystemFAT *fs, char *name, char *fileDir, char *newPath
 		printf(RED"\npath doesn't start with "RESET);
 		printf(ROOT_DIR_NAME);
 		printf("\n");
-		return NULL;
+		return;
 	}
 
 	currentFCB = fs->rootFCB;
@@ -325,20 +319,23 @@ void changeDirectory(FileSystemFAT *fs, char *name, char *fileDir, char *newPath
 int close(FileHandle *fh)
 {
 	int ret;
+
 	fh->info->numFileHandle = fh->info->numFileHandle - 1;
 	if (fh->info->numFileHandle == 0)
-		ret = remOpenFileInfo(ofiTable, &openedFiles, fh->info);
-	if (!ret)
 	{
-		fh->info->numFileHandle = fh->info->numFileHandle + 1;
-		return -1;
+		ret = remOpenFileInfo(ofiTable, &openedFiles, fh->info);
+		if (ret)
+		{
+			fh->info->numFileHandle = fh->info->numFileHandle + 1;
+			return -1;
+		}
 	}
 	free(fh);
 	return 0;
 }
 
 
-int fs_read(FileHandle *fd, void *buf, size_t count)
+int fs_read(FileHandle *fd, void *buf, int count)
 {
 	int			i;
 	int			ret;
@@ -346,7 +343,7 @@ int fs_read(FileHandle *fd, void *buf, size_t count)
 	char		*data;
 	FileEntry	*fe;
 
-	if (fd->permissions != R || fd->permissions != W_R || fd->permissions != EX_R || fd->permissions != EX_W_R)
+	if (fd->permissions != R && fd->permissions != W_R && fd->permissions != EX_R && fd->permissions != EX_W_R)
 	{
 		printf(RED "File is not readable\n"RESET);
 		return -1;
@@ -354,7 +351,7 @@ int fs_read(FileHandle *fd, void *buf, size_t count)
 
 	if (count > MAX_READ_WRITE_SIZE)
 		count = MAX_READ_WRITE_SIZE;
-	
+
 	ret = 0;
 	if (fd->info->fcb->fileSize < fd->offset + count)
 		count = fd->info->fcb->fileSize - fd->offset;
@@ -362,7 +359,7 @@ int fs_read(FileHandle *fd, void *buf, size_t count)
 	while (count > 0)
 	{
 		blockToRead = fd->offset / BLOCK_SIZE;
-		if (blockToRead = 0)
+		if (blockToRead == 0)
 			data = fd->info->fcb->data;
 		else
 		{
@@ -385,7 +382,7 @@ int fs_read(FileHandle *fd, void *buf, size_t count)
 	return ret;
 }
 
-int fs_write(FileHandle *fd, const void *buf, size_t count)
+int fs_write(FileHandle *fd, const void *buf, int count)
 {
 	int			i;
 	int			ret;
@@ -393,7 +390,7 @@ int fs_write(FileHandle *fd, const void *buf, size_t count)
 	char		*data;
 	FileEntry	*fe;
 
-	if (fd->permissions != W || fd->permissions != W_R || fd->permissions != EX_W || fd->permissions != EX_W_R)
+	if (fd->permissions != W && fd->permissions != W_R && fd->permissions != EX_W && fd->permissions != EX_W_R)
 	{
 		printf(RED "File is not writable\n"RESET);
 		return -1;
@@ -406,7 +403,7 @@ int fs_write(FileHandle *fd, const void *buf, size_t count)
 	while (count > 0)
 	{
 		blockToWrite = fd->offset / BLOCK_SIZE;
-		if (blockToWrite = 0)
+		if (blockToWrite == 0)
 			data = fd->info->fcb->data;
 		else
 		{
@@ -468,4 +465,25 @@ int fs_seek(FileHandle *fd, unsigned int offset, int whence)
 		printf(RED "Invalid whence\n"RESET);
 		return -1;
 	}
+	return ret;
+}
+
+void initOpenFileInfo()
+{
+	openedFiles = 0;
+	ofiTable = (openFileInfo **)malloc(sizeof(openFileInfo *) * (MAX_OPEN_FILES + 1));
+	ofiTable[MAX_OPEN_FILES] = NULL;
+}
+
+void printOpenFileInfo()
+{
+	printf(CYAN "OpenFileInfo: \n" RESET);
+	printf("numOpenFiles: %d\n", openedFiles);
+
+	for (int i = 0; i < MAX_OPEN_FILES; i++)
+	{
+		if (ofiTable[i] != NULL)
+		printf("[%d]: %s\n", i + 1, ofiTable[i]->fcb->fileName);
+	}
+	printf("\n");
 }

@@ -1,64 +1,9 @@
 #include "FileSystemFAT.h"
 #include "prints.h"
-#include <stdbool.h>
-
-void reverse(char str[], int length)
-{
-    int start = 0;
-    int end = length - 1;
-    while (start < end) {
-        char temp = str[start];
-        str[start] = str[end];
-        str[end] = temp;
-        end--;
-        start++;
-    }
-}
-// Implementation of citoa()
-char* citoa(int num, char* str, int base)
-{
-    int i = 0;
-    bool isNegative = false;
-
-    /* Handle 0 explicitly, otherwise empty string is
-     * printed for 0 */
-    if (num == 0) {
-        str[i++] = '0';
-        str[i] = '\0';
-        return str;
-    }
-
-    // In standard itoa(), negative numbers are handled
-    // only with base 10. Otherwise numbers are
-    // considered unsigned.
-    if (num < 0 && base == 10) {
-        isNegative = true;
-        num = -num;
-    }
-
-    // Process individual digits
-    while (num != 0) {
-        int rem = num % base;
-        str[i++] = (rem > 9) ? (rem - 10) + 'a' : rem + '0';
-        num = num / base;
-    }
-
-    // If number is negative, append '-'
-    if (isNegative)
-        str[i++] = '-';
-
-    str[i] = '\0'; // Append string terminator
-
-    // Reverse the string
-    reverse(str, i);
-
-    return str;
-}
 
 FileSystemFAT *FS_init()
 {
 	int				i;
-	char			*block;
 	FileSystemFAT	*FAT;
 	char			*disk;
 
@@ -89,34 +34,159 @@ FileSystemFAT *FS_init()
 	rootDir->numFCBS = 0;
 	rootDir->FCBS[0] = NULL;
 
+    initOpenFileInfo();
+
 	return FAT;
 }
 
-int main() {
-	FileSystemFAT *fs = FS_init();
 
-	//FileHandle *fh = createFile(fs, "$ROOT$/user/prova/", "prova.text", R);
+void printAll(FileSystemFAT *fs)
+{
+    printFS(fs, "all");
+}
 
-	char *name = calloc(10, 1);
+void testCreateEraseFile(FileSystemFAT *fs)
+{
+    FileHandle *fh;
 
-	name[0] = 'c';
-	for (int i = 0; i < 520; i++)
-	{
-		citoa(i, &name[1], 10);
-		close(createFile(fs, "$ROOT$/user/prova/", name, R));
+    fh = createFile(fs, "$ROOT$/user/prova/", "prova.txt", R);
+    printf(GREEN "Created file: %s\n\n" RESET, fh->info->fcb->fileName);
+    printOpenFileInfo();
+    printFS(fs, "directoryTree");
+    eraseFile(fs, "$ROOT$/user/prova", "prova.txt");
+    close(fh);
+    eraseFile(fs, "$ROOT$/user/prova", "prova.txt");
+    printFS(fs, "directoryTree");
+    printOpenFileInfo();
 
-	}
+    for (int i = 0; i < 510; i++)
+    {
+        int ret;
+        char str[10];
+        snprintf(str, sizeof(str), "%d.txt", i);
+        fh = createFile(fs, "$ROOT$/filebox/", str, R);
+        if (fh == NULL)
+            printf(RED "Error creating file\n" RESET);
 
-	//fh = createFile(fs, "$ROOT$/user/prova/", "prova.text", R);
+        ret = close(fh);
+        if (ret)
+            printf(RED "Error closing file\n" RESET);
+    }
+    printOpenFileInfo();
+    printFS(fs, "all");
 
-    //printOpenFileInfo();
-	//printFS(fs, "bitMap");
+    for (int i = 0; i < 510; i++)
+    {
+        char str[10];
+        snprintf(str, sizeof(str), "%d.txt", i);
+        eraseFile(fs, "$ROOT$/filebox/", str);
+    }
 
-	printFS(fs, "directoryTree");
+    printOpenFileInfo();
+    printFS(fs, "all");
+}
 
-    //printFS(fs, "tableFAT");
+void testWriteRead(FileSystemFAT *fs)
+{
+    FileHandle *fh;
+    char str[9001];
+    memset(str, '!', sizeof(str));
+    str[sizeof(str) - 1] = '\0';
 
-    //printFS(fs, "fcbList");
+    fh = createFile(fs, "$ROOT$/user/prova/", "prova.txt", W_R);
+    printf("%s\n", fh->info->fcb->fileName);
+    printf("offset: %d\n", fh->offset);
+    printf("mode: %d\n", fh->permissions);
+
+    fs_write(fh, str, sizeof(str));
+
+    printFileContent(fs, fh->info->fcb);
+
+    printf("offset: %d\n", fh->offset);
+
+    fs_seek(fh, 0, SEEK_SET);
+
+    char buf[9001];
+    memset(buf, 0, sizeof(buf));
+    fs_read(fh, buf, sizeof(buf));
+
+    printf("read buffer1: %s\n", buf);
+
+    fs_seek(fh, 1, SEEK_CUR);
+    fs_seek(fh, 0, SEEK_CUR);
+    memset(buf, 0, sizeof(buf));
+    fs_read(fh, buf, 1);
+    printf("read buffer2: %s\n", buf);
+
+    fs_seek(fh, 1, SEEK_END);
+    fs_seek(fh, 0, SEEK_END);
+    memset(buf, 0, sizeof(buf));
+    fs_read(fh, buf, 1);
+    printf("read buffer3: %s\n", buf);
+
+    fs_seek(fh, 8999, SEEK_SET);
+    printf("offset: %d\n", fh->offset);
+    memset(buf, 0, sizeof(buf));
+    fs_read(fh, buf, 3);
+    printf("read buffer4: %s\n", buf);
+
+    printFS(fs, "fcbList");
+    printFS(fs, "bitMap");
+    printFS(fs, "tableFAT");
+
+    close(fh);
+
+    eraseFile(fs, "$ROOT$/user/prova", "prova.txt");
+    printFS(fs, "fcbList");
+    printFS(fs, "bitMap");
+    printFS(fs, "tableFAT");
+}
+
+void testDir(FileSystemFAT *fs)
+{
+    
+}
+
+int main(int argc, char **argv) {
+
+    if (argc < 2) {
+        printf(RED"\nMissing option:\n\n"RESET);
+        printf("    1: print all the fs\n");
+        printf("    2: test Create/Erase File\n");
+        printf("    3: test write/read\n");
+        printf("    4: test dir\n");
+        printf("\n");
+        return 1;
+    }
+    else if (argc > 2) {
+        printf(RED"Too many arguments\n"RESET);
+        return 1;
+    }
+
+    FileSystemFAT *fs = FS_init();
+
+    switch (atoi(argv[1])) {
+        case 1:
+            printAll(fs);
+            break;
+        case 2:
+            testCreateEraseFile(fs);
+            break;
+        case 3:
+            testWriteRead(fs);
+            break;
+        case 4:
+            testDir(fs);
+            break;
+        default:
+            printf(RED"Invalid option\n\n"RESET);
+            printf("    1) printAll\n");
+            printf("    2: test CreateFile\n");
+            printf("    3: test write\n");
+            printf("    4: test dir\n");
+            printf("\n");
+            break;
+    }
 
 }
 

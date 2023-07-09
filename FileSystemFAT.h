@@ -9,14 +9,17 @@ void eraseFile(FileSystemFAT *fs, char *path, char *name);
 int close(FileHandle *fh);
 
 int fs_seek(FileHandle *fd, unsigned int offset, int whence);
-int fs_read(FileHandle *fd, void *buf, size_t count);
-int fs_write(FileHandle *fd, const void *buf, size_t count);
+int fs_read(FileHandle *fd, void *buf, int count);
+int fs_write(FileHandle *fd, const void *buf, int count);
 
 void createDirectory(FileSystemFAT *fs, char *path);
 void eraseDirectory(FileSystemFAT *fs, char *path);
 void listDirectory(FileSystemFAT *fs, char *path);
 void changeDirectory(FileSystemFAT *fs, char *name, char *fileDir, char *newPath);
 
+
 void printOpenFileInfo();
+
+void initOpenFileInfo();
 
 #endif

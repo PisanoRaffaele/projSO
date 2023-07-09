@@ -1,17 +1,32 @@
 #include "prints.h"
 #include "utils.h"
 
-void printFCB(FCB *fcb) {
+void printFCB(FileSystemFAT *fs, FCB *fcb)
+{
+	char	*data;
+	int		deep;
+
     printf("   FCB: ");
     printf("	fileName: %s | ", fcb->fileName);
     printf("isDirectory: %d | ", fcb->isDirectory);
     printf("BlockCount: %d | ", fcb->BlockCount);
     printf("FATNextIndex: %d | ", fcb->FATNextIndex);
+	printf("FATIndex: %d | ", getBlockIdx(fs, (char *)fcb));
+	printf("fileSize: %ld | ", fcb->fileSize);
     printf("data: ");
-	for (int i = 0; i < sizeof(fcb->data); i++) {
-		if (fcb->data[i] != 0)
-			printf("%02X ", (unsigned char)fcb->data[i]);
-	}
+
+	deep = 0;
+	data = fcb->data;
+	do {
+		if (deep > 0)
+			printf(PURPLE"%d: "RESET, deep);
+		for (unsigned long int i = 0; i < sizeof(data); i++) {
+		if (data[i] != 0)
+			printf("%02X ", (unsigned char)data[i]);
+		}
+		deep++;
+		data = (char *) getDirBlock(fs, fcb, deep);
+	} while (data != NULL);
 }
 
 void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB)
@@ -43,8 +58,7 @@ void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB)
 		else if (deMin->FCBS[i]->isDirectory == 1)
 		{
 			printf(BOLDMAGENTA"	%s\n	["RESET, deMin->FCBS[i]->fileName);
-			if (count == deMin->numFCBS - 1)
-				printDirectoryTree(fs, deMin->FCBS[i]);
+			printDirectoryTree(fs, deMin->FCBS[i]);
 			printf(BOLDMAGENTA"\n	]\n"RESET);
 		}
 		else
@@ -81,16 +95,18 @@ void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB)
 }
 
 void printFS(FileSystemFAT *fs, const char* option) {
-    printf(CYAN "FileSystemFAT:\n" RESET);
-    printf(CYAN "diskSize:" RESET " %d bytes, %d MB\n", fs->diskSize, fs->diskSize / 1000000);
-    printf(CYAN "blockSize:" RESET " %d bytes\n", fs->blockSize);
-    printf(CYAN "blockNum:" RESET " %d\n", fs->blockNum);
-	printf(CYAN "numFCBS:" RESET" %d\n", fs->numFCBS);
 
-    if (strcmp(option, "bitMap") == 0) {
 
+	if (strcmp(option, "baseInfo") == 0) {
+		printf(CYAN "FileSystemFAT:\n" RESET);
+		printf(CYAN "diskSize:" RESET " %d bytes, %d MB\n", fs->diskSize, fs->diskSize / 1000000);
+		printf(CYAN "blockSize:" RESET " %d bytes\n", fs->blockSize);
+		printf(CYAN "blockNum:" RESET " %d\n", fs->blockNum);
+		printf(CYAN "numFCBS:" RESET" %d\n", fs->numFCBS);
+	}
+	else if (strcmp(option, "bitMap") == 0) {
         printf(CYAN "bitMap: \n" RESET);
-        for (int i = 0; i < sizeof(fs->bitMap); i++) {
+        for (unsigned long int i = 0; i < sizeof(fs->bitMap); i++) {
             unsigned char byte = fs->bitMap[i];
             for (int j = 0; j < 8; j++) {
                 int bit = (byte >> j) & 1;
@@ -101,14 +117,16 @@ void printFS(FileSystemFAT *fs, const char* option) {
             }
         }
         printf("\n");
-    } else if (strcmp(option, "tableFAT") == 0) {
+    }
+	else if (strcmp(option, "tableFAT") == 0) {
 
 		printf(CYAN "tableFAT: \n" RESET);
-		for (int i = 0; i < sizeof(fs->tableFAT) / sizeof(fs->tableFAT[0]); i++) {
-			printf("%d[%d], ", i, fs->tableFAT[i]);
+		for (unsigned long int i = 0; i < sizeof(fs->tableFAT) / sizeof(fs->tableFAT[0]); i++) {
+			printf("%ld[%d], ", i, fs->tableFAT[i]);
 		}
 		printf("\n");
-	} else if (strcmp(option, "fcbList") == 0) {
+	}
+	else if (strcmp(option, "fcbList") == 0) {
 		int count = 0;
         printf(CYAN "fcbList: \n" RESET);
         for (int i = 0; count < fs->numFCBS; i++) {
@@ -116,7 +134,7 @@ void printFS(FileSystemFAT *fs, const char* option) {
 			{
 				count++;
 				printf("[");
-				printFCB((FCB *)fs->fcbList[i]);
+				printFCB(fs, (FCB *)fs->fcbList[i]);
 				printf("]\n");
 			}
 			else
@@ -126,11 +144,12 @@ void printFS(FileSystemFAT *fs, const char* option) {
 			}
         }
         printf("\n");
-    } else if (strcmp(option, "diskBuffer") == 0) {
+    }
+	else if (strcmp(option, "diskBuffer") == 0) {
 
-		printf(CYAN "diskBuffer (1/512): \n" RESET);
+		printf(CYAN "diskBuffer (1/1024): \n" RESET);
 
-		int smallSize = DISK_DATA_SIZE / 512;
+		int smallSize = DISK_DATA_SIZE / 1024;
 
 		for (int i = 0; i < smallSize; i++) {
 			printf("%02X ", fs->diskBuffer[i] & 0xFF); // Stampa il byte in esadecimale
@@ -140,17 +159,53 @@ void printFS(FileSystemFAT *fs, const char* option) {
 				printf(BLUE "\n|block|\n" RESET); // Stampa una barra verticale colorata
 			}
 		}
-
 		printf("\n");
-	} else if (strcmp(option, "directoryTree") == 0) {
+	}
+	else if (strcmp(option, "directoryTree") == 0) {
 		printf(CYAN "directoryTree: \n" RESET);
 		printDirectoryTree(fs, fs->rootFCB);
 		printf(BOLDGREEN "]" RESET);
 		printf("\n");
-	} else {
-        printf("option = {'bitMap', 'tableFAT', 'fcbList', 'diskBuffer'}.\n");
+	}
+	else if (strcmp(option, "all") == 0) {
+		printFS(fs, "baseInfo");
+		printFS(fs, "bitMap");
+		printFS(fs, "tableFAT");
+		printFS(fs, "fcbList");
+		printFS(fs, "diskBuffer");
+		printFS(fs, "directoryTree");
+	}
+	else {
+		printf(RED "printFS: option not valid\n" RESET);
+        printf("option = {'all', 'directoryTree', 'baseInfo, 'bitMap', 'tableFAT', 'fcbList', 'diskBuffer'}.\n");
     }
     printf("\n");
 }
 
+void printFileContent(FileSystemFAT *fs, FCB *fileFCB) {
 
+	if (fileFCB->isDirectory == 1) {
+		printf(RED "printFileContent: fileFCB is a directory\n" RESET);
+		return;
+	}
+
+	int i = 0;
+	printf (CYAN"%s content: "GRAY, fileFCB->fileName);
+
+	while (fileFCB->data[i] != '\0')
+		printf("%c", fileFCB->data[i++]);
+
+	int h = 0;
+	FileEntry *fe = getFileDataBlock(fs, fileFCB, h);
+	while (fe != NULL)
+	{
+		i = 0;
+		while (fe->data[i] != '\0')
+		{
+			printf("%c", fe->data[i]);
+			i++;
+		}
+		fe = getFileDataBlock(fs, fileFCB, ++h);
+	}
+	printf("\n\n"RESET);
+}

@@ -20,7 +20,7 @@
 #define DISK_BLOCKS (4096 * 2 + 1024 * 4096) / 4096 // DISK_SIZE / BLOCK_SIZE
 
 #define MAX_OPEN_FILES 20
-#define MAX_FCBS 1000
+#define MAX_FCBS 1200
 #define MAX_FILE_NAME_LENGTH 12
 
 #define MAX_DIR_IN_MIN ( BLOCK_SIZE - 40 ) / 8
@@ -38,12 +38,17 @@
 #define WHITE    "\x1b[37m"
 #define BLACK    "\x1b[30m"
 #define PURPLE   "\x1b[35m"
+#define BROWN    "\x1b[33m"
+#define GRAY     "\x1b[30m"
 #define BOLDBLACK    "\033[1m\033[30m"
 #define BOLDRED     "\033[1m\033[31m"
 #define BOLDGREEN   "\033[1m\033[32m"
 #define BOLDYELLOW  "\033[1m\033[33m"
 #define BOLDBLUE    "\033[1m\033[34m"
 #define BOLDMAGENTA "\033[1m\033[35m"
+#define BOLDCYAN    "\033[1m\033[36m"
+#define BOLDWHITE   "\033[1m\033[37m"
+
 
 #define EX_W_R 7
 #define EX_W 6

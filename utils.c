@@ -2,7 +2,7 @@
 
 char *getDataBlock(FileSystemFAT *fs)
 {
-	for (int i = 0; i < sizeof(fs->bitMap); i++) {
+	for (long unsigned int i = 0; i < sizeof(fs->bitMap); i++) {
 		unsigned char byte = fs->bitMap[i];
 		for (int j = 0; j < 8; j++) {
 			int bit = (byte >> j) & 1;
@@ -47,7 +47,7 @@ FCB *createFCB(FileSystemFAT *fs, FCB *dirFCB, char *fileName, int32_t isDirecto
 {
 	if (fs->numFCBS >= MAX_FCBS)
 	{
-		printf(RED"No more FCBs"RESET);
+		printf(RED"No more FCBs\n"RESET);
 		return NULL;
 	}
 
@@ -65,7 +65,7 @@ FCB *createFCB(FileSystemFAT *fs, FCB *dirFCB, char *fileName, int32_t isDirecto
 	fcb->FATNextIndex = -1;
 	fcb->fileSize = 0;
 	strncpy(fcb->fileName, fileName, MAX_FILE_NAME_LENGTH - 1);
-	if (dirFCB != NULL)
+	if (dirFCB != NULL) //nel caso della root
 		addToDir(fs, fcb, dirFCB);
 	return fcb;
 }
@@ -74,6 +74,9 @@ int deleteFCB(FileSystemFAT *fs, FCB *fcb)
 {
 	int count = 0;
 	int i = 0;
+	int idx;
+	int pre;
+
 	DirectoryEntryMin *deMin;
 
 	if (fcb->isDirectory)
@@ -84,6 +87,15 @@ int deleteFCB(FileSystemFAT *fs, FCB *fcb)
 			printf(PURPLE"Directory not empty"RESET);
 			return -1;
 		}
+	}
+
+	idx = fcb->FATNextIndex;
+	while (idx != -1)
+	{
+		removeBit(fs->bitMap, idx);
+		pre = idx;
+		idx = fs->tableFAT[idx];
+		fs->tableFAT[pre] = -1;
 	}
 
 	while (count < fs->numFCBS)
@@ -205,7 +217,6 @@ void removeFromDir(FileSystemFAT *fs, FCB *dirFCB, FCB *fcb)
 {
 	DirectoryEntryMin	*deMin;
 	DirectoryEntry		*de;
-	int					idx;
 	int					i;
 	int					block;
 
@@ -222,7 +233,7 @@ void removeFromDir(FileSystemFAT *fs, FCB *dirFCB, FCB *fcb)
 		i++;
 	}
 	block = 1;
-	while (dirFCB->BlockCount < block)
+	while (block < dirFCB->BlockCount)
 	{
 		de = getDirBlock(fs, dirFCB, block++);
 		i = 0;
@@ -232,11 +243,11 @@ void removeFromDir(FileSystemFAT *fs, FCB *dirFCB, FCB *fcb)
 			{
 				de->numFCBS = de->numFCBS - 1;
 				de->FCBS[i] = NULL;
-				dirFCB->BlockCount -= 1;
 				if (de->numFCBS == 0)
 				{
 					removeFatIndex(fs, dirFCB);
 					removeBit(fs->bitMap, getBlockIdx(fs, (char *)de));
+					dirFCB->BlockCount -= 1;
 				}
 				return;
 			}
@@ -270,11 +281,9 @@ void addToDir(FileSystemFAT *fs, FCB *fcb, FCB *dirFCB)
 {
 	DirectoryEntryMin	*deMin;
 	DirectoryEntry		*de;
-	int					count;
 	int					i;
 
 	i = 0;
-	count = 0;
 	deMin = (DirectoryEntryMin *) &dirFCB->data;
 	if (deMin->numFCBS < MAX_DIR_IN_MIN)
 	{
@@ -337,7 +346,7 @@ FCB *findFCB(FileSystemFAT *fs, FCB *dirFcb, char *name)
 	block = 1;
 	i = 0;
 	count = 0;
-	while (dirFcb->BlockCount < block)
+	while (block < dirFcb->BlockCount)
 	{
 		dir = getDirBlock(fs, dirFcb, block++);
 		while (count < dir->numFCBS)
@@ -379,15 +388,15 @@ openFileInfo *newOpenFileInfo(openFileInfo **ofiTable, int *openedFiles)
 		}
 		i++;
 	}
+	return NULL;
 }
-
 
 openFileInfo *findOpenFileInfo(openFileInfo **ofiTable, FCB *toFind)
 {
 	int i = 0;
 	while (i < MAX_OPEN_FILES)
 	{
-		if (ofiTable[i]->fcb == toFind)
+		if (ofiTable[i] && ofiTable[i]->fcb == toFind)
 			return ofiTable[i];
 		i++;
 	}
@@ -438,8 +447,14 @@ int pathIsValid(char *path)
 	char *pathSegment = strtok(path_copy, "/");
 
 	if (pathSegment != NULL)
-		pathSegment = strtok(NULL, "/");
-
+	{
+		if(strcmp(pathSegment, ROOT_DIR_NAME) != 0)
+		{
+			printf(RED"Invalid path\n"RESET);
+			return 0;
+		}
+	}
+	pathSegment = strtok(NULL, "/");
 	while (pathSegment != NULL)
 	{
 		if (strcmp(pathSegment, ROOT_DIR_NAME) == 0)
@@ -458,7 +473,11 @@ int pathIsValid(char *path)
 	}
     for (int i = 0; path[i] != '\0'; i++)
 	{
-        if (path[i] == '.' || count >= MAX_FILE_NAME_LENGTH || path[i] == ' ')
+        if (path[i] == '.' || count >= MAX_FILE_NAME_LENGTH || path[i] == ' ' || path[i] == '\n' ||
+			path[i] == '\t' || path[i] == '\r' || path[i] == '\v' || path[i] == '\f' ||
+			path[i] == '\b' || path[i] == '\a' || path[i] == ':' || path[i] == '*' || path[i] == '?' ||
+			path[i] == '"' || path[i] == '<' || path[i] == '>' || path[i] == '|' || path[i] == '\0' ||
+			(i > 0 && path[i] == '/' && path[i - 1] == '/'))
 		{
 			printf(RED"Invalid path\n"RESET);
 			return 0;
@@ -506,8 +525,6 @@ FCB *createDirectoryWrapped(FileSystemFAT *fs, char *path)
 {
 	char				*path_copy;
 	char				*pathSegment;
-	DirectoryEntry		*currentDir;
-	DirectoryEntryMin	*firstDir;
 	FCB					*currentFCB;
 	FCB					*oldFCB;
 
