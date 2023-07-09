@@ -340,5 +340,132 @@ int close(FileHandle *fh)
 
 int fs_read(FileHandle *fd, void *buf, size_t count)
 {
+	int			i;
+	int			ret;
+	int			blockToRead;
+	char		*data;
+	FileEntry	*fe;
+
+	if (fd->permissions != R || fd->permissions != W_R || fd->permissions != EX_R || fd->permissions != EX_W_R)
+	{
+		printf(RED "File is not readable\n"RESET);
+		return -1;
+	}
+
+	if (count > MAX_READ_WRITE_SIZE)
+		count = MAX_READ_WRITE_SIZE;
 	
+	ret = 0;
+	if (fd->info->fcb->fileSize < fd->offset + count)
+		count = fd->info->fcb->fileSize - fd->offset;
+
+	while (count > 0)
+	{
+		blockToRead = fd->offset / BLOCK_SIZE;
+		if (blockToRead = 0)
+			data = fd->info->fcb->data;
+		else
+		{
+			fe = getFileDataBlock(fd->info->fileSystem, fd->info->fcb, blockToRead);
+			if (fe == NULL)
+				return ret;
+			data = fe->data;
+		}
+
+		i = 0;
+		while (i < count && fd->offset % BLOCK_SIZE + i < BLOCK_SIZE)
+		{
+			((char *)buf)[ret] = data[fd->offset % BLOCK_SIZE + i];
+			i++;
+			ret++;
+		}
+		count -= i;
+		fd->offset += i;
+	}
+	return ret;
+}
+
+int fs_write(FileHandle *fd, const void *buf, size_t count)
+{
+	int			i;
+	int			ret;
+	int			blockToWrite;
+	char		*data;
+	FileEntry	*fe;
+
+	if (fd->permissions != W || fd->permissions != W_R || fd->permissions != EX_W || fd->permissions != EX_W_R)
+	{
+		printf(RED "File is not writable\n"RESET);
+		return -1;
+	}
+
+	if (count > MAX_READ_WRITE_SIZE)
+		count = MAX_READ_WRITE_SIZE;
+
+	ret = 0;
+	while (count > 0)
+	{
+		blockToWrite = fd->offset / BLOCK_SIZE;
+		if (blockToWrite = 0)
+			data = fd->info->fcb->data;
+		else
+		{
+			fe = createFileDataBlock(fd->info->fileSystem, fd->info->fcb, blockToWrite);
+			if (fe == NULL)
+				return ret;
+			data = fe->data;
+		}
+		i = 0;
+		while (i < count && fd->offset % BLOCK_SIZE + i < BLOCK_SIZE)
+		{
+			data[fd->offset % BLOCK_SIZE + i] = ((char *)buf)[ret];
+			i++;
+			ret++;
+		}
+		count -= i;
+		fd->offset += i;
+	}
+	fd->info->fcb->fileSize += ret;
+	return ret;
+}
+
+int fs_seek(FileHandle *fd, unsigned int offset, int whence)
+{
+	int ret;
+
+	if (whence == SEEK_SET)
+	{
+		if (offset > fd->info->fcb->fileSize)
+		{
+			printf(RED "Offset is greater than file size\n"RESET);
+			return -1;
+		}
+		fd->offset = offset;
+		ret = offset;
+	}
+	else if (whence == SEEK_CUR)
+	{
+		if (fd->offset + offset > fd->info->fcb->fileSize)
+		{
+			printf(RED "Offset is greater than file size\n"RESET);
+			return -1;
+		}
+		fd->offset += offset;
+		ret = fd->offset;
+	}
+	else if (whence == SEEK_END)
+	{
+		if (fd->info->fcb->fileSize + offset > fd->info->fcb->fileSize)
+		{
+			printf(RED "with SEEK_END the offset must be 0\n"RESET);
+			return -1;
+		}
+		fd->offset = fd->info->fcb->fileSize + offset;
+		ret = fd->offset;
+	}
+	else
+	{
+		printf(RED "Invalid whence\n"RESET);
+		return -1;
+	}
 }

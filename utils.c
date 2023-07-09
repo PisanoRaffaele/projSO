@@ -63,6 +63,7 @@ FCB *createFCB(FileSystemFAT *fs, FCB *dirFCB, char *fileName, int32_t isDirecto
 	fcb->isDirectory = isDirectory;
 	fcb->BlockCount = 1;
 	fcb->FATNextIndex = -1;
+	fcb->fileSize = 0;
 	strncpy(fcb->fileName, fileName, MAX_FILE_NAME_LENGTH - 1);
 	if (dirFCB != NULL)
 		addToDir(fs, fcb, dirFCB);
@@ -101,21 +102,24 @@ int deleteFCB(FileSystemFAT *fs, FCB *fcb)
 	return 0;
 }
 
-FileEntry *getNextDataBlock(FileSystemFAT *fs, FCB *fileFcb)
+FileEntry *createFileDataBlock(FileSystemFAT *fs, FCB *fileFcb, int deep)
 {
 	FileEntry	*fe;
 	int			idx;
 	int			pre;
 
+	fe = getFileDataBlock(fs, fileFcb, deep);
+	if (fe != NULL)
+		return fe;
+
+	deep--;
 	pre = -1;
 	idx = fileFcb->FATNextIndex;
-	while (idx != -1)
+	while (idx != -1 && deep > 0)
 	{
-		fe = (FileEntry *) getBlockPointer(fs, idx);
-		if(fe->data[BLOCK_SIZE - 1] != 0)
-			return fe;
 		pre = idx;
-		idx = fs->tableFAT[pre];
+		idx = fs->tableFAT[idx];
+		deep--;
 	}
 	fe = (FileEntry *) getDataBlock(fs);
 	if (fe == NULL)
@@ -127,6 +131,22 @@ FileEntry *getNextDataBlock(FileSystemFAT *fs, FCB *fileFcb)
 		fs->tableFAT[pre] = idx;
 	fileFcb->BlockCount = fileFcb->BlockCount + 1;
 	return fe;
+}
+
+FileEntry *getFileDataBlock(FileSystemFAT *fs, FCB *fileFcb, int deep)
+{
+	int idx;
+	deep--;
+	idx = fileFcb->FATNextIndex;
+	while (idx != -1 && deep > 0)
+	{
+		idx = fs->tableFAT[idx];
+		deep--;
+	}
+	if (idx != -1)
+		return (FileEntry *) getBlockPointer(fs, idx);
+	else
+		return NULL;
 }
 
 DirectoryEntry *getDirBlock(FileSystemFAT *fs, FCB *dirFcb, int deep)
@@ -404,7 +424,7 @@ FileHandle *newFileHandle(openFileInfo *ofi, mode_type mode)
 	}
 	ret->permissions = mode;
 	ret->info = ofi;
-	ret->filePointer = 0;
+	ret->offset = 0;
 	ofi->numFileHandle = ofi->numFileHandle + 1;
 	return ret;
 }

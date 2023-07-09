@@ -23,7 +23,7 @@
 #define MAX_FCBS 1000
 #define MAX_FILE_NAME_LENGTH 12
 
-#define MAX_DIR_IN_MIN ( BLOCK_SIZE - 32 ) / 8
+#define MAX_DIR_IN_MIN ( BLOCK_SIZE - 40 ) / 8
 #define MAX_DIR_IN_BLOCK ( BLOCK_SIZE - 8 ) / 8
 
 #define ROOT_DIR_NAME "$ROOT$"
@@ -53,6 +53,12 @@
 #define W 2
 #define R 1
 
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
+#define MAX_READ_WRITE_SIZE 4096 * 3
+
 typedef int32_t mode_type;
 
 typedef struct FCB{
@@ -60,7 +66,8 @@ typedef struct FCB{
 	int32_t	isDirectory; // (0 = false, 1 = true)
 	int32_t	BlockCount;
 	int32_t	FATNextIndex;
-	char	data[BLOCK_SIZE - 24]; // 4072 bytes
+	int64_t	fileSize; // not used for directories
+	char	data[BLOCK_SIZE - 32]; // 4064 bytes
 } FCB;
 
 
@@ -90,17 +97,17 @@ typedef struct FileEntry {
 } FileEntry;
 
 
-// 4072 bytes
+// 4064 bytes
 typedef struct DirectoryEntryMin {
 	int32_t	numFCBS;
 	int32_t	isLast;
-	FCB		*FCBS[MAX_DIR_IN_MIN]; // 508 pointers * 8 bytes each = 4064 bytes
+	FCB		*FCBS[MAX_DIR_IN_MIN]; // 507 pointers * 8 bytes each = 4056 bytes
 } DirectoryEntryMin;
 
 
-// 4072 bytes
+// 4064 bytes
 typedef struct FileEntryMin {
-	char	data[BLOCK_SIZE - 24];
+	char	data[BLOCK_SIZE - 32];
 } FileEntryMin;
 
 
@@ -112,7 +119,7 @@ typedef struct openFileInfo {
 } openFileInfo;
 
 typedef struct FileHandle {
-	int				filePointer;
+	int				offset;
 	mode_type		permissions;
 	openFileInfo	*info;
 } FileHandle;

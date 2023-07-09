@@ -36,7 +36,9 @@ DirectoryEntry *getDirBlock(FileSystemFAT *fs, FCB *dirFcb, int deep);
 
 DirectoryEntry *createDirBlock(FileSystemFAT *fs, FCB *dirFcb, int deep);
 
-FileEntry *getNextDataBlock(FileSystemFAT *fs, FCB *fileFcb);
+FileEntry *getFileDataBlock(FileSystemFAT *fs, FCB *fileFcb, int deep);
+
+FileEntry *createFileDataBlock(FileSystemFAT *fs, FCB *fileFcb, int deep);
 
 
 
