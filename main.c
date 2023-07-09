@@ -144,7 +144,51 @@ void testWriteRead(FileSystemFAT *fs)
 
 void testDir(FileSystemFAT *fs)
 {
-    
+    createDirectory(fs, "$ROOT$/user/");
+    createDirectory(fs, "$ROOT$/user/prova/prova2/");
+    createDirectory(fs, "$ROOT$/fr/");
+
+    printFS(fs, "directoryTree");
+
+    listDirectory(fs, "$ROOT$/");
+    listDirectory(fs, "$ROOT$/user/");
+    changeDirectory(fs, "prova2", "$ROOT$/user/prova/", "$ROOT$/user/");
+    listDirectory(fs, "$ROOT$");
+
+    printFS(fs, "directoryTree");
+
+    eraseDirectory(fs, "$ROOT$/user/prova/prova2/");
+    eraseDirectory(fs, "$ROOT$/user/prova2/");
+    eraseDirectory(fs, "$ROOT$/user/");
+
+
+    printFS(fs, "fcbList");
+    for (int i = 0; i < 510; i++)
+    {
+        char str[35];
+        snprintf(str, sizeof(str), "$ROOT$/filebox/1/2/3/4/%d", i);
+        createDirectory(fs, str);
+        if (i == 0)
+        {
+            printFS(fs, "fcbList");
+        }
+    }
+
+    //printFS(fs, "directoryTree");
+    printFS(fs, "bitMap");
+    //printFS(fs, "fcbList");
+
+    for (int i = 0; i < 510; i++)
+    {
+        char str[35];
+        snprintf(str, sizeof(str), "$ROOT$/filebox/1/2/3/4/%d", i);
+        eraseDirectory(fs, str);
+    }
+
+    printFS(fs, "baseInfo");
+    printFS(fs, "directoryTree");
+    printFS(fs, "bitMap");
+    printFS(fs, "fcbList");
 }
 
 int main(int argc, char **argv) {

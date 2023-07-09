@@ -9,4 +9,6 @@ void printFS(FileSystemFAT *fs, const char* option);
 
 void printFileContent(FileSystemFAT *fs, FCB *fileFCB);
 
+void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB, int deep);
+
 #endif

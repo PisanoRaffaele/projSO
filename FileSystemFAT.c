@@ -167,7 +167,7 @@ void eraseDirectory(FileSystemFAT *fs, char *path)
 		currentFCB = findFCB(fs, oldFCB, pathSegment);
 		if (currentFCB == NULL)
 		{
-			printf(PURPLE"\nDirectory not found\n"RESET);
+			printf(RED"\nDirectory not found\n"RESET);
 			return;
 		}
 		pathSegment = strtok(NULL, "/");
@@ -176,7 +176,7 @@ void eraseDirectory(FileSystemFAT *fs, char *path)
 	dirEntry = (DirectoryEntryMin *)currentFCB->data;
 	if (dirEntry->numFCBS > 0)
 	{
-		printf(PURPLE"Directory not empty"RESET);
+		printf(RED"Directory not empty\n"RESET);
 		return;
 	}
 	removeFromDir(fs, oldFCB, currentFCB);
@@ -231,6 +231,7 @@ void listDirectory(FileSystemFAT *fs, char *path)
 		printf(RED "%s is a file path\n"RESET, path);
 		return;
 	}
+	printf(BOLDCYAN" %s: "RESET, currentFCB->fileName);
 	deMin = (DirectoryEntryMin *)currentFCB->data;
 	i = 0;
 	count = 0;
@@ -263,9 +264,10 @@ void listDirectory(FileSystemFAT *fs, char *path)
 			count++;
 		}
 	}
+	printf("\n");
 }
 
-void changeDirectory(FileSystemFAT *fs, char *name, char *fileDir, char *newPath)
+void changeDirectory(FileSystemFAT *fs, char *name, char *oldPath, char *newPath)
 {
 	FCB					*currentFCB;
 	FCB					*oldFCB;
@@ -273,13 +275,13 @@ void changeDirectory(FileSystemFAT *fs, char *name, char *fileDir, char *newPath
 	char				*path_copy;
 	char				*pathSegment;
 
-	if (!pathIsValid(fileDir))
+	if (!pathIsValid(oldPath))
 		return;
 
 	if (!nameIsValid(name))
 		return;
 
-	path_copy = strdup(fileDir);
+	path_copy = strdup(oldPath);
 	pathSegment = strtok(path_copy, "/");
 
 	if (strcmp(pathSegment, ROOT_DIR_NAME) != 0)

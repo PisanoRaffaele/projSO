@@ -29,12 +29,34 @@ void printFCB(FileSystemFAT *fs, FCB *fcb)
 	} while (data != NULL);
 }
 
-void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB)
+void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB, int deep)
 {
 	DirectoryEntry		*de;
 	DirectoryEntryMin	*deMin;
 	int					i;
 	int					count;
+	char				color[20];
+
+	switch (deep % 5)
+	{
+	case 0:
+		strcpy(color, BOLDMAGENTA);
+		break;
+	case 1:
+		strcpy(color, BOLDCYAN);
+		break;
+	case 2:
+		strcpy(color, BOLDPURPLE);
+		break;
+	case 3:
+		strcpy(color, BOLDYELLOW);
+		break;
+	case 4:
+		strcpy(color, BOLDBLUE);
+		break;
+	default:
+		break;
+	}
 
 	if (dirFCB == NULL || dirFCB->isDirectory == 0)
 	{
@@ -43,7 +65,7 @@ void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB)
 	}
 
 	if(strcmp(dirFCB->fileName, ROOT_DIR_NAME) == 0)
-		printf(BOLDGREEN "%s\n[" RESET, dirFCB->fileName);
+		printf(BOLDGREEN "%s\n[\n" RESET, dirFCB->fileName);
 
 	deMin = (DirectoryEntryMin *)dirFCB->data;
 	i = 0;
@@ -57,9 +79,11 @@ void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB)
 		}
 		else if (deMin->FCBS[i]->isDirectory == 1)
 		{
-			printf(BOLDMAGENTA"	%s\n	["RESET, deMin->FCBS[i]->fileName);
-			printDirectoryTree(fs, deMin->FCBS[i]);
-			printf(BOLDMAGENTA"\n	]\n"RESET);
+			printf(color);
+			printf("	%s ["RESET, deMin->FCBS[i]->fileName);
+			printDirectoryTree(fs, deMin->FCBS[i], deep + 1);
+			printf(color);
+			printf("]\n"RESET);
 		}
 		else
 			printf("%s - ", deMin->FCBS[i]->fileName);
@@ -81,9 +105,11 @@ void printDirectoryTree(FileSystemFAT *fs, FCB *dirFCB)
 			}
 			else if (de->FCBS[i]->isDirectory == 1)
 			{
-				printf(CYAN "%s\n"RESET, de->FCBS[i]->fileName);
-				if (count == de->numFCBS - 1)
-					printDirectoryTree(fs, de->FCBS[i]);
+				printf(color);
+				printf("	%s ["RESET, de->FCBS[i]->fileName);
+				printDirectoryTree(fs, de->FCBS[i], deep + 1);
+				printf(color);
+				printf("]\n"RESET);
 			}
 			else
 				printf("%s ", de->FCBS[i]->fileName);
@@ -129,6 +155,10 @@ void printFS(FileSystemFAT *fs, const char* option) {
 	else if (strcmp(option, "fcbList") == 0) {
 		int count = 0;
         printf(CYAN "fcbList: \n" RESET);
+		for (int i = 0; i < fs->numFCBS; i++) {
+			printf("%p, ", fs->fcbList[i]);
+			printf("\n");
+		}
         for (int i = 0; count < fs->numFCBS; i++) {
 			if(fs->fcbList[i] != 0)
 			{
@@ -163,7 +193,7 @@ void printFS(FileSystemFAT *fs, const char* option) {
 	}
 	else if (strcmp(option, "directoryTree") == 0) {
 		printf(CYAN "directoryTree: \n" RESET);
-		printDirectoryTree(fs, fs->rootFCB);
+		printDirectoryTree(fs, fs->rootFCB, 0);
 		printf(BOLDGREEN "]" RESET);
 		printf("\n");
 	}

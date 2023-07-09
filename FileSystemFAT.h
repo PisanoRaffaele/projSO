@@ -15,7 +15,7 @@ int fs_write(FileHandle *fd, const void *buf, int count);
 void createDirectory(FileSystemFAT *fs, char *path);
 void eraseDirectory(FileSystemFAT *fs, char *path);
 void listDirectory(FileSystemFAT *fs, char *path);
-void changeDirectory(FileSystemFAT *fs, char *name, char *fileDir, char *newPath);
+void changeDirectory(FileSystemFAT *fs, char *name, char *oldPath, char *newPath);
 
 
 void printOpenFileInfo();
