@@ -102,12 +102,14 @@ int deleteFCB(FileSystemFAT *fs, FCB *fcb)
 	{
 		if (fs->fcbList[i] != NULL)
 			count++;
-		else if (fs->fcbList[i] == fcb)
+		if (fs->fcbList[i] == fcb)
+		{
+			fs->numFCBS--;
+			fs->fcbList[i] = NULL;
 			break;
+		}
 		i++;
 	}
-	fs->numFCBS--;
-	fs->fcbList[i] = NULL;
 
 	removeBit(fs->bitMap, getBlockIdx(fs, (char *)fcb));
 
@@ -550,6 +552,7 @@ FCB *createDirectoryWrapped(FileSystemFAT *fs, char *path)
 
 		oldFCB = currentFCB;
 		currentFCB = findFCB(fs, oldFCB, pathSegment);
+
 		if (currentFCB == NULL)
 		{
 			currentFCB = createFCB(fs, oldFCB, pathSegment, 1);

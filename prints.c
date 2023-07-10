@@ -155,24 +155,20 @@ void printFS(FileSystemFAT *fs, const char* option) {
 	else if (strcmp(option, "fcbList") == 0) {
 		int count = 0;
         printf(CYAN "fcbList: \n" RESET);
-		for (int i = 0; i < fs->numFCBS; i++) {
-			printf("%p, ", fs->fcbList[i]);
-			printf("\n");
-		}
-        for (int i = 0; count < fs->numFCBS; i++) {
-			if(fs->fcbList[i] != 0)
+		for (int i = 0; count < fs->numFCBS && i < MAX_FCBS; i++) {
+			if (fs->fcbList[i] != NULL)
 			{
 				count++;
 				printf("[");
+				printf("p: %p |", fs->fcbList[i]);
 				printFCB(fs, (FCB *)fs->fcbList[i]);
 				printf("]\n");
 			}
 			else
-			{
-				if(!i)
-					printf(" [empty]\n");
-			}
-        }
+				printf(" [empty]\n");
+		}
+		if (count == 0)
+			printf(" [empty]\n");
         printf("\n");
     }
 	else if (strcmp(option, "diskBuffer") == 0) {

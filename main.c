@@ -156,27 +156,25 @@ void testDir(FileSystemFAT *fs)
     listDirectory(fs, "$ROOT$");
 
     printFS(fs, "directoryTree");
+    printFS(fs, "fcbList");
 
     eraseDirectory(fs, "$ROOT$/user/prova/prova2/");
     eraseDirectory(fs, "$ROOT$/user/prova2/");
     eraseDirectory(fs, "$ROOT$/user/");
 
-
-    printFS(fs, "fcbList");
     for (int i = 0; i < 510; i++)
     {
         char str[35];
         snprintf(str, sizeof(str), "$ROOT$/filebox/1/2/3/4/%d", i);
         createDirectory(fs, str);
         if (i == 0)
-        {
             printFS(fs, "fcbList");
-        }
     }
 
+    listDirectory(fs, "$ROOT$/filebox/1/2/3/4/");
     //printFS(fs, "directoryTree");
     printFS(fs, "bitMap");
-    //printFS(fs, "fcbList");
+    printFS(fs, "fcbList");
 
     for (int i = 0; i < 510; i++)
     {
@@ -190,6 +188,8 @@ void testDir(FileSystemFAT *fs)
     printFS(fs, "bitMap");
     printFS(fs, "fcbList");
 }
+
+
 
 int main(int argc, char **argv) {
 

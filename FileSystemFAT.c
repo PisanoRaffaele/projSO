@@ -167,7 +167,7 @@ void eraseDirectory(FileSystemFAT *fs, char *path)
 		currentFCB = findFCB(fs, oldFCB, pathSegment);
 		if (currentFCB == NULL)
 		{
-			printf(RED"\nDirectory not found\n"RESET);
+			printf(RED"eraseDirectory: %s not found in %s \n\nn"RESET, pathSegment, oldFCB->fileName);
 			return;
 		}
 		pathSegment = strtok(NULL, "/");
@@ -176,9 +176,10 @@ void eraseDirectory(FileSystemFAT *fs, char *path)
 	dirEntry = (DirectoryEntryMin *)currentFCB->data;
 	if (dirEntry->numFCBS > 0)
 	{
-		printf(RED"Directory not empty\n"RESET);
+		printf(RED"eraseDirectory: %s not empty\n\n"RESET, currentFCB->fileName);
 		return;
 	}
+
 	removeFromDir(fs, oldFCB, currentFCB);
 	deleteFCB(fs, currentFCB);
 }
@@ -231,7 +232,7 @@ void listDirectory(FileSystemFAT *fs, char *path)
 		printf(RED "%s is a file path\n"RESET, path);
 		return;
 	}
-	printf(BOLDCYAN" %s: "RESET, currentFCB->fileName);
+	printf(BOLDCYAN"%s: "RESET, currentFCB->fileName);
 	deMin = (DirectoryEntryMin *)currentFCB->data;
 	i = 0;
 	count = 0;
@@ -264,7 +265,7 @@ void listDirectory(FileSystemFAT *fs, char *path)
 			count++;
 		}
 	}
-	printf("\n");
+	printf("\n\n");
 }
 
 void changeDirectory(FileSystemFAT *fs, char *name, char *oldPath, char *newPath)
