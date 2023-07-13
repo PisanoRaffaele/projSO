@@ -122,6 +122,7 @@ typedef struct openFileInfo {
 	FileSystemFAT	*fileSystem;
 	FCB				*fcb;
 	int				numFileHandle;
+	int				isUsed;
 } openFileInfo;
 
 typedef struct FileHandle {

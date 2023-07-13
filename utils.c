@@ -369,7 +369,6 @@ FCB *findFCB(FileSystemFAT *fs, FCB *dirFcb, char *name)
 openFileInfo *newOpenFileInfo(openFileInfo **ofiTable, int *openedFiles)
 {
 	int i = 0;
-	openFileInfo *ret;
 
 	if (*openedFiles >= MAX_OPEN_FILES)
 	{
@@ -377,16 +376,14 @@ openFileInfo *newOpenFileInfo(openFileInfo **ofiTable, int *openedFiles)
 		return NULL;
 	}
 
-	ret = (openFileInfo *) malloc(sizeof(openFileInfo));
-
 	while (i < MAX_OPEN_FILES)
 	{
-		if (ofiTable[i] == NULL)
+		if (ofiTable[i]->isUsed == 0)
 		{
-			ofiTable[i] = ret;
+
 			*openedFiles = *openedFiles + 1;
-			ret->numFileHandle = 0;
-			return ret;
+			ofiTable[i]->isUsed = 1;
+			return ofiTable[i];
 		}
 		i++;
 	}
@@ -398,7 +395,7 @@ openFileInfo *findOpenFileInfo(openFileInfo **ofiTable, FCB *toFind)
 	int i = 0;
 	while (i < MAX_OPEN_FILES)
 	{
-		if (ofiTable[i] && ofiTable[i]->fcb == toFind)
+		if (ofiTable[i]->fcb == toFind)
 			return ofiTable[i];
 		i++;
 	}
@@ -413,8 +410,10 @@ int remOpenFileInfo(openFileInfo **ofiTable, int *openedFiles, openFileInfo *ele
 		if (ofiTable[i] == elem)
 		{
 			*openedFiles = *openedFiles - 1;
-			ofiTable[i] = NULL;
-			free(elem);
+			ofiTable[i]->isUsed = 0;
+			ofiTable[i]->fcb = NULL;
+			ofiTable[i]->fileSystem = NULL;
+			ofiTable[i]->numFileHandle = 0;
 			return 0;
 		}
 		i++;

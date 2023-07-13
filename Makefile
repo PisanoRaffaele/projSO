@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall -Wextra -g
 
 # Lista dei file sorgente
 SRCS = main.c FileSystemFAT.c utils.c prints.c

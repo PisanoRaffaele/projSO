@@ -475,7 +475,16 @@ void initOpenFileInfo()
 {
 	openedFiles = 0;
 	ofiTable = (openFileInfo **)malloc(sizeof(openFileInfo *) * (MAX_OPEN_FILES + 1));
+	for (int i = 0; i < MAX_OPEN_FILES; i++)
+	{
+		ofiTable[i] = (openFileInfo *)malloc(sizeof(openFileInfo));
+		ofiTable[i]->isUsed = 0;
+		ofiTable[i]->numFileHandle = 0;
+		ofiTable[i]->fcb = NULL;
+		ofiTable[i]->fileSystem = NULL;
+	}
 	ofiTable[MAX_OPEN_FILES] = NULL;
+
 }
 
 void printOpenFileInfo()
@@ -485,7 +494,7 @@ void printOpenFileInfo()
 
 	for (int i = 0; i < MAX_OPEN_FILES; i++)
 	{
-		if (ofiTable[i] != NULL)
+		if (ofiTable[i]->isUsed == 1)
 		printf("[%d]: %s\n", i + 1, ofiTable[i]->fcb->fileName);
 	}
 	printf("\n");
