@@ -50,14 +50,11 @@ void testCreateEraseFile(FileSystemFAT *fs)
     FileHandle *fh;
 
     fh = createFile(fs, "$ROOT$/user/prova/", "prova.txt", R);
-    printf(GREEN "Created file: %s\n\n" RESET, fh->info->fcb->fileName);
     printOpenFileInfo();
-    printFS(fs, "directoryTree");
     eraseFile(fs, "$ROOT$/user/prova", "prova.txt");
     close(fh);
     eraseFile(fs, "$ROOT$/user/prova", "prova.txt");
     printFS(fs, "directoryTree");
-    printOpenFileInfo();
 
     for (int i = 0; i < 510; i++)
     {
@@ -73,7 +70,8 @@ void testCreateEraseFile(FileSystemFAT *fs)
             printf(RED "Error closing file\n" RESET);
     }
     printOpenFileInfo();
-    printFS(fs, "all");
+    printFS(fs, "directoryTree");
+    printFS(fs, "bitMap");
 
     for (int i = 0; i < 510; i++)
     {
@@ -83,14 +81,14 @@ void testCreateEraseFile(FileSystemFAT *fs)
     }
 
     printOpenFileInfo();
-    printFS(fs, "all");
+    printFS(fs, "fcbList");
 }
 
 void testWriteRead(FileSystemFAT *fs)
 {
     FileHandle *fh;
     char str[9001];
-    memset(str, '!', sizeof(str));
+    memset(str, 'p', sizeof(str));
     str[sizeof(str) - 1] = '\0';
 
     fh = createFile(fs, "$ROOT$/user/prova/", "prova.txt", W_R);
@@ -98,7 +96,7 @@ void testWriteRead(FileSystemFAT *fs)
     printf("offset: %d\n", fh->offset);
     printf("mode: %d\n", fh->permissions);
 
-    fs_write(fh, str, sizeof(str));
+    fs_write(fh, str, 10);
 
     printFileContent(fs, fh->info->fcb);
 
@@ -132,14 +130,8 @@ void testWriteRead(FileSystemFAT *fs)
 
     printFS(fs, "fcbList");
     printFS(fs, "bitMap");
-    printFS(fs, "tableFAT");
 
     close(fh);
-
-    eraseFile(fs, "$ROOT$/user/prova", "prova.txt");
-    printFS(fs, "fcbList");
-    printFS(fs, "bitMap");
-    printFS(fs, "tableFAT");
 }
 
 void testDir(FileSystemFAT *fs)
@@ -148,15 +140,11 @@ void testDir(FileSystemFAT *fs)
     createDirectory(fs, "$ROOT$/user/prova/prova2/");
     createDirectory(fs, "$ROOT$/fr/");
 
-    printFS(fs, "directoryTree");
-
     listDirectory(fs, "$ROOT$/");
-    listDirectory(fs, "$ROOT$/user/");
-    changeDirectory(fs, "prova2", "$ROOT$/user/prova/", "$ROOT$/user/");
-    listDirectory(fs, "$ROOT$");
 
     printFS(fs, "directoryTree");
-    printFS(fs, "fcbList");
+    changeDirectory(fs, "prova2", "$ROOT$/user/prova/", "$ROOT$/user/");
+    printFS(fs, "directoryTree");
 
     eraseDirectory(fs, "$ROOT$/user/prova/prova2/");
     eraseDirectory(fs, "$ROOT$/user/prova2/");
@@ -167,14 +155,9 @@ void testDir(FileSystemFAT *fs)
         char str[35];
         snprintf(str, sizeof(str), "$ROOT$/filebox/1/2/3/4/%d", i);
         createDirectory(fs, str);
-        if (i == 0)
-            printFS(fs, "fcbList");
     }
 
     listDirectory(fs, "$ROOT$/filebox/1/2/3/4/");
-    //printFS(fs, "directoryTree");
-    printFS(fs, "bitMap");
-    printFS(fs, "fcbList");
 
     for (int i = 0; i < 510; i++)
     {
@@ -182,11 +165,7 @@ void testDir(FileSystemFAT *fs)
         snprintf(str, sizeof(str), "$ROOT$/filebox/1/2/3/4/%d", i);
         eraseDirectory(fs, str);
     }
-
-    printFS(fs, "baseInfo");
     printFS(fs, "directoryTree");
-    printFS(fs, "bitMap");
-    printFS(fs, "fcbList");
 }
 
 
@@ -231,6 +210,5 @@ int main(int argc, char **argv) {
             printf("\n");
             break;
     }
-
 }
 
