@@ -168,6 +168,40 @@ void testDir(FileSystemFAT *fs)
     printFS(fs, "directoryTree");
 }
 
+void testAll (FileSystemFAT *fs) {
+    FileHandle *fh;
+    char str[9001];
+    char buf[9001];
+
+    fh = createFile(fs, "$ROOT$/user/prova/", "prova.txt", W_R);
+    printf("%s | offset: %d | mode: %d\n", fh->info->fcb->fileName, fh->offset, fh->permissions);
+    memset(str, 'p', sizeof(str));
+    str[sizeof(str) - 1] = '\0';
+    fs_write(fh, str, 10);
+    printFileContent(fs, fh->info->fcb);
+    printf("offset: %d\n", fh->offset);
+    fs_seek(fh, 0, SEEK_SET);
+    memset(buf, 0, sizeof(buf));
+    fs_read(fh, buf, sizeof(buf));
+    printf("read buffer1: %s\n", buf);
+
+    printOpenFileInfo();
+    eraseFile(fs, "$ROOT$/user/prova", "prova.txt");
+    close(fh);
+    eraseFile(fs, "$ROOT$/user/prova", "prova.txt");
+
+    createDirectory(fs, "$ROOT$/fr/");
+    listDirectory(fs, "$ROOT$/");
+    eraseDirectory(fs, "$ROOT$/user/");
+    changeDirectory(fs, "prova", "$ROOT$/user/", "$ROOT$/fr/");
+    eraseDirectory(fs, "$ROOT$/user/");
+
+    printFS(fs, "bitMap");
+    printFS(fs, "fcbList");
+    printFS(fs, "directoryTree");
+
+}
+
 
 
 int main(int argc, char **argv) {
@@ -201,14 +235,17 @@ int main(int argc, char **argv) {
         case 4:
             testDir(fs);
             break;
+        case 5:
+            testAll(fs);
+            break;
         default:
             printf(RED"Invalid option\n\n"RESET);
             printf("    1) printAll\n");
             printf("    2: test CreateFile\n");
             printf("    3: test write\n");
             printf("    4: test dir\n");
+            printf("    5: test all\n");
             printf("\n");
             break;
     }
 }
-

@@ -67,6 +67,13 @@ FCB *createFCB(FileSystemFAT *fs, FCB *dirFCB, char *fileName, int32_t isDirecto
 	strncpy(fcb->fileName, fileName, MAX_FILE_NAME_LENGTH - 1);
 	if (dirFCB != NULL) //nel caso della root
 		addToDir(fs, fcb, dirFCB);
+	if (isDirectory)
+	{
+		DirectoryEntryMin *deMin = (DirectoryEntryMin *)fcb->data;
+		deMin->numFCBS = 0;
+		for (int i = 0; i < MAX_DIR_IN_MIN; i++)
+			deMin->FCBS[i] = NULL;
+	}
 	return fcb;
 }
 
